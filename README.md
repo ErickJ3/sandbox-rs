@@ -37,7 +37,7 @@ conn = sqlite3.connect(':memory:')
 
 cursor = conn.cursor()
 
-cursor.execute('''CREATE TABLE pessoas (nome TEXT)''')
+cursor.execute('''CREATE TABLE persons (nome TEXT)''')
 
 nomes = [('Paul',), ('Eric',), ('Jesus',)]
 cursor.executemany('INSERT INTO persons VALUES (?)', nomes)
