@@ -579,9 +579,7 @@ mod tests {
         let _guard = serial_guard();
         let _root_guard = RootOverrideGuard::enable();
         let tmp = tempdir().unwrap();
-        let sandbox = SandboxBuilder::new("build-test")
-            .root(tmp.path())
-            .build();
+        let sandbox = SandboxBuilder::new("build-test").root(tmp.path()).build();
 
         assert!(sandbox.is_ok());
     }
@@ -590,9 +588,7 @@ mod tests {
     fn test_sandbox_builder_build_validates_config() {
         let _guard = serial_guard();
         let tmp = tempdir().unwrap();
-        let result = SandboxBuilder::new("")
-            .root(tmp.path())
-            .build();
+        let result = SandboxBuilder::new("").root(tmp.path()).build();
 
         assert!(result.is_err());
     }
