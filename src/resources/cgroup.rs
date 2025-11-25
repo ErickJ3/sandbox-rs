@@ -44,18 +44,20 @@ impl CgroupConfig {
     /// Validate configuration
     pub fn validate(&self) -> Result<()> {
         if let Some(limit) = self.memory_limit
-            && limit == 0 {
-                return Err(SandboxError::InvalidConfig(
-                    "Memory limit must be greater than 0".to_string(),
-                ));
-            }
+            && limit == 0
+        {
+            return Err(SandboxError::InvalidConfig(
+                "Memory limit must be greater than 0".to_string(),
+            ));
+        }
 
         if let Some(weight) = self.cpu_weight
-            && (!(100..=10000).contains(&weight)) {
-                return Err(SandboxError::InvalidConfig(
-                    "CPU weight must be between 100-10000".to_string(),
-                ));
-            }
+            && (!(100..=10000).contains(&weight))
+        {
+            return Err(SandboxError::InvalidConfig(
+                "CPU weight must be between 100-10000".to_string(),
+            ));
+        }
 
         Ok(())
     }

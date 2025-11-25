@@ -302,9 +302,9 @@ impl SeccompCompiler {
 
             if let Some(SyscallNumber(num)) = SyscallNumber::from_name(syscall_name) {
                 instrs.push(BpfInstr {
-                    code: 0x15,  // JEQ
-                    jt: 1,       // jump if equal
-                    jf: 0,       // default
+                    code: 0x15, // JEQ
+                    jt: 1,      // jump if equal
+                    jf: 0,      // default
                     k: num,
                 });
 

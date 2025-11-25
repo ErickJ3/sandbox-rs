@@ -69,12 +69,14 @@ fn stress_combined_configurations() {
 fn stress_timeout_configurations() {
     let _lock = STRESS_TEST_LOCK.lock();
 
-    let timeouts = [Duration::from_millis(100),
+    let timeouts = [
+        Duration::from_millis(100),
         Duration::from_millis(500),
         Duration::from_secs(1),
         Duration::from_secs(5),
         Duration::from_secs(10),
-        Duration::from_secs(60)];
+        Duration::from_secs(60),
+    ];
 
     for (i, timeout) in timeouts.iter().enumerate() {
         let _builder = SandboxBuilder::new(&format!("stress-timeout-{}", i)).timeout(*timeout);
@@ -98,11 +100,13 @@ fn stress_max_pids_configurations() {
 fn stress_seccomp_profiles() {
     let _lock = STRESS_TEST_LOCK.lock();
 
-    let profiles = [SeccompProfile::Minimal,
+    let profiles = [
+        SeccompProfile::Minimal,
         SeccompProfile::IoHeavy,
         SeccompProfile::Compute,
         SeccompProfile::Network,
-        SeccompProfile::Unrestricted];
+        SeccompProfile::Unrestricted,
+    ];
 
     for (i, profile) in profiles.iter().enumerate() {
         let _builder =
@@ -115,9 +119,11 @@ fn stress_seccomp_profiles() {
 fn stress_namespace_configurations() {
     let _lock = STRESS_TEST_LOCK.lock();
 
-    let configs = [NamespaceConfig::minimal(),
+    let configs = [
+        NamespaceConfig::minimal(),
         NamespaceConfig::default(),
-        NamespaceConfig::all()];
+        NamespaceConfig::all(),
+    ];
 
     for (i, config) in configs.iter().enumerate() {
         let _builder = SandboxBuilder::new(&format!("stress-ns-{}", i)).namespaces(config.clone());
@@ -180,11 +186,13 @@ fn stress_long_sandbox_ids() {
 fn stress_special_char_sandbox_ids() {
     let _lock = STRESS_TEST_LOCK.lock();
 
-    let ids = ["sandbox-with-dashes",
+    let ids = [
+        "sandbox-with-dashes",
         "sandbox_with_underscores",
         "sandbox123numbers",
         "UPPERCASE",
-        "MixedCase"];
+        "MixedCase",
+    ];
 
     for id in ids.iter() {
         let _builder = SandboxBuilder::new(id);

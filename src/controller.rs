@@ -92,7 +92,7 @@ impl SandboxBuilder {
             config: SandboxConfig {
                 id: id.to_string(),
                 ..Default::default()
-            }
+            },
         }
     }
 
@@ -192,9 +192,10 @@ impl Sandbox {
     fn new(config: SandboxConfig) -> Result<Self> {
         // Create root directory
         fs::create_dir_all(&config.root).map_err(|e| {
-            SandboxError::Io(std::io::Error::other(
-                format!("Failed to create root directory: {}", e),
-            ))
+            SandboxError::Io(std::io::Error::other(format!(
+                "Failed to create root directory: {}",
+                e
+            )))
         })?;
 
         Ok(Self {
