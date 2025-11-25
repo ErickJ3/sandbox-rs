@@ -53,17 +53,21 @@ sandbox-rs = "0.1"
 use sandbox_rs::{SandboxBuilder, SeccompProfile};
 use std::time::Duration;
 
-let mut sandbox = SandboxBuilder::new("my-sandbox")
-    .memory_limit_str("256M")?
-    .cpu_limit_percent(50)?
-    .timeout(Duration::from_secs(30))?
-    .seccomp_profile(SeccompProfile::IoHeavy)?
-    .build()?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut sandbox = SandboxBuilder::new("my-sandbox")
+        .memory_limit_str("256M")?
+        .cpu_limit_percent(50)
+        .timeout(Duration::from_secs(30))
+        .seccomp_profile(SeccompProfile::IoHeavy)
+        .build()?;
 
-let result = sandbox.run("/bin/echo", &["hello world"])?;
-println!("Exit code: {}", result.exit_code);
-println!("Memory peak: {} bytes", result.memory_peak);
-println!("CPU time: {} μs", result.cpu_time_us);
+    let result = sandbox.run("/bin/echo", &["hello world"])?;
+    println!("Exit code: {}", result.exit_code);
+    println!("Memory peak: {} bytes", result.memory_peak);
+    println!("CPU time: {} μs", result.cpu_time_us);
+
+    Ok(())
+}
 ```
 
 ### CLI
