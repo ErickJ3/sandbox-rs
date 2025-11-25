@@ -12,7 +12,7 @@ This guide helps you diagnose and resolve common issues when using sandbox-rs.
 
 ```bash
 # Option 1: Run with sudo
-sudo cargo run --example basic_sandbox
+sudo cargo run --example basic
 
 # Option 2: Run CLI with sudo
 sudo ./target/debug/sandbox-ctl run --id test /bin/echo "hello"
@@ -68,7 +68,7 @@ If your system uses cgroup v1 only:
 
 ```bash
 # Check if running as root
-sudo cargo run --example basic_sandbox
+sudo cargo run --example basic
 
 # Run with memory limit
 sudo cargo run --example cgroup_limits
@@ -366,13 +366,13 @@ Expected overhead:
 
 ```bash
 # Set log level to debug
-RUST_LOG=debug cargo run --example basic_sandbox
+RUST_LOG=debug cargo run --example basic
 
 # With components
-RUST_LOG=sandbox_rs=debug cargo run --example basic_sandbox
+RUST_LOG=sandbox_rs=debug cargo run --example basic
 
 # Very verbose
-RUST_LOG=trace cargo run --example basic_sandbox
+RUST_LOG=trace cargo run --example basic
 ```
 
 ### Run with strace (for system calls)
@@ -393,7 +393,7 @@ If you encounter an issue not listed here:
 
 1. **Check the logs:**
    ```bash
-   RUST_LOG=debug cargo run --example basic_sandbox 2>&1 | head -100
+   RUST_LOG=debug cargo run --example basic 2>&1 | head -100
    ```
 
 2. **Check system requirements:**
@@ -409,7 +409,7 @@ If you encounter an issue not listed here:
 
 4. **Test with minimal setup:**
    ```bash
-   sudo cargo run --example basic_sandbox
+   sudo cargo run --example basic
    ```
 
 5. **Report issue with:**
