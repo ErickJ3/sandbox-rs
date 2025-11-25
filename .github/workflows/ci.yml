@@ -27,7 +27,7 @@ jobs:
           key: runner-os-cargo-registry-Cargo-lock-hash
 
       - name: Run tests (without root-only tests)
-        run: cargo test --lib --doc
+        run: cargo test --lib
 
       - name: Run unit tests verbose
         run: cargo test --lib -- --nocapture
@@ -83,7 +83,7 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Generate coverage
-        run: cargo tarpaulin --lib --out Xml --timeout 300 --skip-missing
+        run: cargo tarpaulin --lib --timeout 300
 
   docs:
     name: docs
