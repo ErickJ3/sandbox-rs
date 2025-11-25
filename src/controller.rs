@@ -449,10 +449,54 @@ mod tests {
     }
 
     #[test]
+    fn test_sandbox_builder_cpu_limit_zero() {
+        let builder = SandboxBuilder::new("test").cpu_limit_percent(0);
+        assert!(builder.config.cpu_quota.is_none());
+    }
+
+    #[test]
+    fn test_sandbox_builder_cpu_limit_over_100() {
+        let builder = SandboxBuilder::new("test").cpu_limit_percent(150);
+        assert!(builder.config.cpu_quota.is_none());
+    }
+
+    #[test]
     fn test_sandbox_builder_cpu_quota() {
         let builder = SandboxBuilder::new("test").cpu_quota(50000, 100000);
         assert_eq!(builder.config.cpu_quota, Some(50000));
         assert_eq!(builder.config.cpu_period, Some(100000));
+    }
+
+    #[test]
+    fn test_sandbox_builder_max_pids() {
+        let builder = SandboxBuilder::new("test").max_pids(10);
+        assert_eq!(builder.config.max_pids, Some(10));
+    }
+
+    #[test]
+    fn test_sandbox_builder_seccomp_profile() {
+        let builder = SandboxBuilder::new("test").seccomp_profile(SeccompProfile::IoHeavy);
+        assert_eq!(builder.config.seccomp_profile, SeccompProfile::IoHeavy);
+    }
+
+    #[test]
+    fn test_sandbox_builder_root() {
+        let tmp = tempdir().unwrap();
+        let builder = SandboxBuilder::new("test").root(tmp.path());
+        assert_eq!(builder.config.root, tmp.path());
+    }
+
+    #[test]
+    fn test_sandbox_builder_timeout() {
+        let builder = SandboxBuilder::new("test").timeout(Duration::from_secs(30));
+        assert_eq!(builder.config.timeout, Some(Duration::from_secs(30)));
+    }
+
+    #[test]
+    fn test_sandbox_builder_namespaces() {
+        let ns_config = NamespaceConfig::minimal();
+        let builder = SandboxBuilder::new("test").namespaces(ns_config.clone());
+        assert_eq!(builder.config.namespace_config, ns_config);
     }
 
     #[test]
@@ -512,6 +556,45 @@ mod tests {
         let result = sandbox.run("/bin/echo", &args).unwrap();
         assert_eq!(result.exit_code, 0);
         assert!(!sandbox.is_running());
+    }
+
+    #[test]
+    fn sandbox_run_returns_error_if_already_running() {
+        let _guard = serial_guard();
+        let (_tmp, config) = config_with_temp_root("already-running");
+        let mut sandbox = Sandbox::new(config).unwrap();
+
+        // Set PID to simulate already running
+        sandbox.pid = Some(Pid::from_raw(1));
+
+        let args: [&str; 1] = ["test"];
+        let result = sandbox.run("/bin/echo", &args);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("already running"));
+    }
+
+    #[test]
+    fn test_sandbox_builder_build_creates_sandbox() {
+        let _guard = serial_guard();
+        let _root_guard = RootOverrideGuard::enable();
+        let tmp = tempdir().unwrap();
+        let sandbox = SandboxBuilder::new("build-test")
+            .root(tmp.path())
+            .build();
+
+        assert!(sandbox.is_ok());
+    }
+
+    #[test]
+    fn test_sandbox_builder_build_validates_config() {
+        let _guard = serial_guard();
+        let tmp = tempdir().unwrap();
+        let result = SandboxBuilder::new("")
+            .root(tmp.path())
+            .build();
+
+        assert!(result.is_err());
     }
 
     #[test]
