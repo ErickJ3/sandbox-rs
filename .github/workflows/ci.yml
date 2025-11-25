@@ -82,8 +82,14 @@ jobs:
       - name: Install tarpaulin
         run: cargo install cargo-tarpaulin
 
-      - name: Generate coverage
-        run: cargo tarpaulin --lib --timeout 300
+      - name: gen-cov
+        run: cargo tarpaulin --lib --timeout 300 --out Xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./cobertura.xml
+          fail_ci_if_error: false
 
   docs:
     name: docs
