@@ -1,0 +1,31 @@
+[package]
+name = "sandbox-rs"
+version = "0.1.0"
+edition = "2024"
+authors = ["Erick Jesus <erick.jesus2060@gmail.com>"]
+
+[dependencies]
+nix = { version = "0.30", features = ["process", "sched", "mount", "resource", "signal", "fs"] }
+libc = "0.2"
+thiserror = "2.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.23"
+clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.48", features = ["full"] }
+actix-web = "4.12"
+uuid = { version = "1.18", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
+env_logger = "0.11"
+reqwest = { version = "0.12", features = ["json"] }
+
+[[bin]]
+name = "sandbox-ctl"
+path = "src/bin/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
