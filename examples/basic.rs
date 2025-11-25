@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Try to run a simple command
     println!("[2] Running 'echo hello' in sandbox...");
-    let result = sandbox.run("echo", &["hello", "world"])?;
+    let result = sandbox.run("/bin/echo", &["hello", "world"])?;
 
     println!("[*] Execution result:");
     println!("Exit code: {}", result.exit_code);
