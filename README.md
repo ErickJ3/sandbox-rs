@@ -3,8 +3,8 @@
 A comprehensive Rust sandbox implementation that provides process isolation, resource limiting, and syscall filtering for secure program execution.
 
 ![Tests](https://img.shields.io/github/actions/workflow/status/ErickJ3/sandbox-rs/ci.yml?branch=main&label=test)
-[![Crates.io](https://img.shields.io/crates/v/webpage-info.svg)](https://crates.io/crates/sandbox-rs)
-[![Documentation](https://docs.rs/webpage-info/badge.svg)](https://docs.rs/sandbox-rs)
+[![Crates.io](https://img.shields.io/crates/v/sandbox-rs.svg)](https://crates.io/crates/sandbox-rs)
+[![Documentation](https://docs.rs/sandbox-rs/badge.svg)](https://docs.rs/sandbox-rs)
 ![Rust](https://img.shields.io/badge/rust-1.91%2B-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
