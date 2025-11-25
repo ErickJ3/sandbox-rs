@@ -1,6 +1,6 @@
 [package]
 name = "sandbox-rs"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Erick Jesus <erick.jesus2060@gmail.com>"]
 description = "A comprehensive Rust sandbox implementation that provides process isolation, resource limiting, and syscall filtering for secure program execution."
