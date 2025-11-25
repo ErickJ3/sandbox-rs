@@ -22,7 +22,7 @@ pub enum NamespaceType {
 }
 
 /// Configuration for namespace isolation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamespaceConfig {
     /// PID namespace enabled
     pub pid: bool,
