@@ -3,6 +3,14 @@ name = "sandbox-rs"
 version = "0.1.0"
 edition = "2024"
 authors = ["Erick Jesus <erick.jesus2060@gmail.com>"]
+description = "A comprehensive Rust sandbox implementation that provides process isolation, resource limiting, and syscall filtering for secure program execution."
+license = "MIT"
+repository = "https://github.com/ErickJ3/sandbox-rs"
+homepage = "https://github.com/ErickJ3/sandbox-rs"
+documentation = "https://docs.rs/sandbox-rs"
+keywords = ["sandbox", "isolation", "security", "linux", "seccomp"]
+categories = ["development-tools", "os"]
+readme = "README.md"
 
 [dependencies]
 nix = { version = "0.30", features = ["process", "sched", "mount", "resource", "signal", "fs"] }
