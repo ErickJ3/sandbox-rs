@@ -2,6 +2,10 @@
 
 A comprehensive Rust sandbox implementation that provides process isolation, resource limiting, and syscall filtering for secure program execution.
 
+![Tests](https://img.shields.io/github/actions/workflow/status/ErickJ3/sandbox-rs/ci.yml?branch=main&label=test)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Rust](https://img.shields.io/badge/rust-1.91%2B-orange.svg)
+
 ## Overview
 
 sandbox-rs is a library and CLI tool for creating lightweight, secure sandboxes on Linux systems. It combines multiple isolation mechanisms—Linux namespaces, Seccomp BPF filtering, Cgroup v2 resource limits, and filesystem isolation—into a unified, easy-to-use interface.
