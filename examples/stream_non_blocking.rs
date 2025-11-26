@@ -7,7 +7,7 @@
 //! many syscalls for proper operation. For simple commands like `echo`, you can
 //! use more restrictive profiles like Minimal or Compute.
 
-use sandbox_rs::{SandboxBuilder, StreamChunk, SeccompProfile};
+use sandbox_rs::{SandboxBuilder, SeccompProfile, StreamChunk};
 use std::time::Duration;
 use tempfile::tempdir;
 

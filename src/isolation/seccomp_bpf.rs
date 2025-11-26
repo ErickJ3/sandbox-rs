@@ -34,7 +34,7 @@ impl SeccompBpf {
         if is_unrestricted {
             for syscall_name in blocked.iter() {
                 if let Some(num) = get_syscall_number_from_name(syscall_name) {
-                    rules.entry(num).or_insert_with(Vec::new);
+                    rules.entry(num).or_default();
                 }
             }
         } else {
@@ -43,19 +43,17 @@ impl SeccompBpf {
                     continue;
                 }
                 if let Some(num) = get_syscall_number_from_name(syscall_name) {
-                    rules.entry(num).or_insert_with(Vec::new);
+                    rules.entry(num).or_default();
                 }
             }
         }
 
         let (mismatch_action, match_action) = if is_unrestricted {
             (SeccompAction::Allow, SeccompAction::Trap)
+        } else if filter.is_kill_on_violation() {
+            (SeccompAction::KillProcess, SeccompAction::Allow)
         } else {
-            if filter.is_kill_on_violation() {
-                (SeccompAction::KillProcess, SeccompAction::Allow)
-            } else {
-                (SeccompAction::Trap, SeccompAction::Allow)
-            }
+            (SeccompAction::Trap, SeccompAction::Allow)
         };
 
         let seccompiler_filter = SeccompilerFilter::new(

@@ -8,7 +8,7 @@ use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "sandbox-ctl")]
-#[command(about = "Sandbox controller - intermediate between isolate and firecracker", long_about = None)]
+#[command(about = "Sandbox controller - a comprehensive Rust sandbox implementation", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
