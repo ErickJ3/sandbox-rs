@@ -141,3 +141,190 @@ fn process_executor_skips_privileged_operations_without_root() {
     let result = ProcessExecutor::execute(config, namespace).unwrap();
     assert_eq!(result.exit_status, 0);
 }
+
+#[test]
+fn stream_new_creates_channel_pair() {
+    use crate::execution::stream::ProcessStream;
+
+    let (writer, reader) = ProcessStream::new();
+    writer.send_stdout("test".to_string()).unwrap();
+
+    match reader.recv() {
+        Ok(Some(chunk)) => match chunk {
+            crate::execution::stream::StreamChunk::Stdout(data) => {
+                assert_eq!(data, "test");
+            }
+            _ => panic!("Expected Stdout chunk"),
+        },
+        _ => panic!("Failed to receive chunk"),
+    }
+}
+
+#[test]
+fn stream_default_creates_empty_stream() {
+    use crate::execution::stream::ProcessStream;
+
+    let stream = ProcessStream::default();
+    assert!(stream.try_recv().unwrap().is_none());
+}
+
+#[test]
+fn stream_send_stdout_and_receive() {
+    use crate::execution::stream::{ProcessStream, StreamChunk};
+
+    let (writer, reader) = ProcessStream::new();
+    writer.send_stdout("hello stdout".to_string()).unwrap();
+
+    let chunk = reader.recv().unwrap().unwrap();
+    match chunk {
+        StreamChunk::Stdout(data) => assert_eq!(data, "hello stdout"),
+        _ => panic!("Expected Stdout"),
+    }
+}
+
+#[test]
+fn stream_send_stderr_and_receive() {
+    use crate::execution::stream::{ProcessStream, StreamChunk};
+
+    let (writer, reader) = ProcessStream::new();
+    writer.send_stderr("error message".to_string()).unwrap();
+
+    let chunk = reader.recv().unwrap().unwrap();
+    match chunk {
+        StreamChunk::Stderr(data) => assert_eq!(data, "error message"),
+        _ => panic!("Expected Stderr"),
+    }
+}
+
+#[test]
+fn stream_send_exit_and_receive() {
+    use crate::execution::stream::{ProcessStream, StreamChunk};
+
+    let (writer, reader) = ProcessStream::new();
+    writer.send_exit(42, Some(9)).unwrap();
+
+    let chunk = reader.recv().unwrap().unwrap();
+    match chunk {
+        StreamChunk::Exit { exit_code, signal } => {
+            assert_eq!(exit_code, 42);
+            assert_eq!(signal, Some(9));
+        }
+        _ => panic!("Expected Exit"),
+    }
+}
+
+#[test]
+fn stream_try_recv_non_blocking() {
+    use crate::execution::stream::ProcessStream;
+    let (writer, reader) = ProcessStream::new();
+    assert!(reader.try_recv().unwrap().is_none());
+    writer.send_stdout("data".to_string()).unwrap();
+    assert!(reader.try_recv().unwrap().is_some());
+}
+
+#[test]
+fn stream_try_recv_after_disconnect() {
+    use crate::execution::stream::ProcessStream;
+    let (_writer, reader) = ProcessStream::new();
+    drop(_writer);
+    assert!(reader.try_recv().unwrap().is_none());
+}
+
+#[test]
+fn stream_iterator_collects_all_chunks() {
+    use crate::execution::stream::{ProcessStream, StreamChunk};
+    use std::thread;
+
+    let (writer, reader) = ProcessStream::new();
+
+    thread::spawn(move || {
+        writer.send_stdout("line1".to_string()).unwrap();
+        writer.send_stdout("line2".to_string()).unwrap();
+        writer.send_stderr("error".to_string()).unwrap();
+        writer.send_exit(0, None).unwrap();
+    });
+
+    let chunks: Vec<_> = reader.into_iter().collect();
+
+    assert_eq!(chunks.len(), 4);
+    match &chunks[0] {
+        StreamChunk::Stdout(s) => assert_eq!(s, "line1"),
+        _ => panic!(),
+    }
+    match &chunks[1] {
+        StreamChunk::Stdout(s) => assert_eq!(s, "line2"),
+        _ => panic!(),
+    }
+    match &chunks[2] {
+        StreamChunk::Stderr(s) => assert_eq!(s, "error"),
+        _ => panic!(),
+    }
+    match &chunks[3] {
+        StreamChunk::Exit { exit_code, signal } => {
+            assert_eq!(*exit_code, 0);
+            assert_eq!(*signal, None);
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn stream_multiple_stdout_messages() {
+    use crate::execution::stream::{ProcessStream, StreamChunk};
+
+    let (writer, reader) = ProcessStream::new();
+
+    writer.send_stdout("msg1".to_string()).unwrap();
+    writer.send_stdout("msg2".to_string()).unwrap();
+    writer.send_stdout("msg3".to_string()).unwrap();
+
+    let chunk1 = reader.recv().unwrap().unwrap();
+    let chunk2 = reader.recv().unwrap().unwrap();
+    let chunk3 = reader.recv().unwrap().unwrap();
+
+    match chunk1 {
+        StreamChunk::Stdout(s) => assert_eq!(s, "msg1"),
+        _ => panic!(),
+    }
+    match chunk2 {
+        StreamChunk::Stdout(s) => assert_eq!(s, "msg2"),
+        _ => panic!(),
+    }
+    match chunk3 {
+        StreamChunk::Stdout(s) => assert_eq!(s, "msg3"),
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn stream_interleaved_stdout_stderr() {
+    use crate::execution::stream::{ProcessStream, StreamChunk};
+
+    let (writer, reader) = ProcessStream::new();
+
+    writer.send_stdout("out1".to_string()).unwrap();
+    writer.send_stderr("err1".to_string()).unwrap();
+    writer.send_stdout("out2".to_string()).unwrap();
+    writer.send_stderr("err2".to_string()).unwrap();
+
+    let chunks: Vec<_> = (0..4).map(|_| reader.recv().unwrap().unwrap()).collect();
+
+    assert_eq!(chunks.len(), 4);
+
+    match &chunks[0] {
+        StreamChunk::Stdout(s) => assert_eq!(s, "out1"),
+        _ => panic!(),
+    }
+    match &chunks[1] {
+        StreamChunk::Stderr(s) => assert_eq!(s, "err1"),
+        _ => panic!(),
+    }
+    match &chunks[2] {
+        StreamChunk::Stdout(s) => assert_eq!(s, "out2"),
+        _ => panic!(),
+    }
+    match &chunks[3] {
+        StreamChunk::Stderr(s) => assert_eq!(s, "err2"),
+        _ => panic!(),
+    }
+}

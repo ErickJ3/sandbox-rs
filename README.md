@@ -50,6 +50,8 @@ sandbox-rs = "0.1"
 
 ### Library
 
+**One-shot execution:**
+
 ```rust
 use sandbox_rs::{SandboxBuilder, SeccompProfile};
 use std::time::Duration;
@@ -66,6 +68,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Exit code: {}", result.exit_code);
     println!("Memory peak: {} bytes", result.memory_peak);
     println!("CPU time: {} μs", result.cpu_time_us);
+
+    Ok(())
+}
+```
+
+**Streaming output (real-time):**
+
+```rust
+use sandbox_rs::{SandboxBuilder, StreamChunk};
+use std::time::Duration;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut sandbox = SandboxBuilder::new("my-sandbox")
+        .memory_limit_str("256M")?
+        .cpu_limit_percent(50)
+        .timeout(Duration::from_secs(30))
+        .build()?;
+
+    let (result, stream) = sandbox.run_with_stream("/bin/echo", &["hello world"])?;
+
+    // Process output in real-time
+    for chunk in stream.into_iter() {
+        match chunk {
+            StreamChunk::Stdout(line) => println!("out: {}", line),
+            StreamChunk::Stderr(line) => eprintln!("err: {}", line),
+            StreamChunk::Exit { exit_code, signal } => {
+                println!("Exit code: {}", exit_code);
+            }
+        }
+    }
 
     Ok(())
 }

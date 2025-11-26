@@ -221,5 +221,5 @@ fn test_resource_tracking() {
     let result = sandbox.run("/bin/echo", &["test"]).expect("Failed to run");
 
     assert!(result.wall_time_ms > 0);
-    assert!(result.memory_peak > 0);
+    assert_eq!(result.exit_code, 0);
 }

@@ -10,6 +10,7 @@ use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 
 use crate::errors::{Result, SandboxError};
+use crate::execution::ProcessStream;
 use crate::execution::process::{ProcessConfig, ProcessExecutor};
 use crate::isolation::namespace::NamespaceConfig;
 use crate::isolation::seccomp::SeccompProfile;
@@ -307,7 +308,71 @@ impl Sandbox {
         }
     }
 
-    /// Kill sandbox
+    /// Run program with streaming output
+    pub fn run_with_stream(
+        &mut self,
+        program: &str,
+        args: &[&str],
+    ) -> Result<(SandboxResult, ProcessStream)> {
+        if self.is_running() {
+            return Err(SandboxError::AlreadyRunning);
+        }
+
+        self.start_time = Some(Instant::now());
+
+        let cgroup_name = format!("sandbox-{}", self.config.id);
+        let cgroup = Cgroup::new(&cgroup_name, Pid::from_raw(std::process::id() as i32))?;
+
+        let cgroup_config = CgroupConfig {
+            memory_limit: self.config.memory_limit,
+            cpu_quota: self.config.cpu_quota,
+            cpu_period: self.config.cpu_period,
+            max_pids: self.config.max_pids,
+            cpu_weight: None,
+        };
+        cgroup.apply_config(&cgroup_config)?;
+
+        self.cgroup = Some(cgroup);
+
+        let process_config = ProcessConfig {
+            program: program.to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            env: Vec::new(),
+            cwd: None,
+            chroot_dir: None,
+            uid: None,
+            gid: None,
+            seccomp: Some(crate::isolation::seccomp::SeccompFilter::from_profile(
+                self.config.seccomp_profile.clone(),
+            )),
+        };
+
+        let (process_result, stream) = ProcessExecutor::execute_with_stream(
+            process_config,
+            self.config.namespace_config.clone(),
+            true,
+        )?;
+
+        self.pid = Some(process_result.pid);
+
+        let wall_time_ms = self.start_time.unwrap().elapsed().as_millis() as u64;
+        let (memory_peak, _) = self.get_resource_usage().unwrap_or((0, 0));
+
+        let sandbox_result = SandboxResult {
+            exit_code: process_result.exit_status,
+            signal: process_result.signal,
+            timed_out: false,
+            memory_peak,
+            cpu_time_us: process_result.exec_time_ms * 1000,
+            wall_time_ms,
+        };
+
+        let stream =
+            stream.ok_or_else(|| SandboxError::Io(std::io::Error::other("stream unavailable")))?;
+
+        Ok((sandbox_result, stream))
+    }
+
     pub fn kill(&mut self) -> Result<()> {
         if let Some(pid) = self.pid {
             kill(pid, Signal::SIGKILL)
@@ -661,5 +726,33 @@ mod tests {
         let (mem, cpu) = sandbox.get_resource_usage().unwrap();
         assert_eq!(mem, 0);
         assert_eq!(cpu, 0);
+    }
+
+    #[test]
+    #[ignore]
+    fn sandbox_run_with_stream_captures_output() {
+        let _guard = serial_guard();
+        let _root_guard = RootOverrideGuard::enable();
+        let (_tmp, config) = config_with_temp_root("stream-test");
+        let mut sandbox = Sandbox::new(config).unwrap();
+
+        let (result, stream) = sandbox
+            .run_with_stream("/bin/echo", &["hello world"])
+            .unwrap();
+
+        let chunks: Vec<_> = stream.into_iter().collect();
+
+        assert!(!chunks.is_empty());
+        assert_eq!(result.exit_code, 0);
+
+        let has_stdout = chunks
+            .iter()
+            .any(|chunk| matches!(chunk, crate::StreamChunk::Stdout(_)));
+        let has_exit = chunks
+            .iter()
+            .any(|chunk| matches!(chunk, crate::StreamChunk::Exit { .. }));
+
+        assert!(has_stdout, "Should have captured stdout");
+        assert!(has_exit, "Should have exit chunk");
     }
 }

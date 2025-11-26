@@ -218,4 +218,87 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_generate_init_script_with_special_args() {
+        let script = generate_init_script("/bin/sh", &["-c", "echo hello"]);
+
+        assert!(script.contains("/bin/sh"));
+        assert!(script.contains("-c"));
+        assert!(script.contains("echo hello"));
+    }
+
+    #[test]
+    fn test_generate_init_script_complex_program() {
+        let script = generate_init_script("/usr/bin/python3", &["-u", "script.py"]);
+
+        assert!(script.contains("/usr/bin/python3"));
+        assert!(script.contains("-u"));
+        assert!(script.contains("script.py"));
+    }
+
+    #[test]
+    fn test_generate_init_script_many_args() {
+        let args = vec!["arg1", "arg2", "arg3", "arg4", "arg5"];
+        let script = generate_init_script("/bin/cat", &args);
+
+        for arg in &args {
+            assert!(script.contains(arg));
+        }
+        assert!(script.contains("/bin/cat"));
+    }
+
+    #[test]
+    fn test_generate_init_script_format() {
+        let script = generate_init_script("/bin/ls", &["-la"]);
+
+        assert!(script.starts_with("#!/bin/sh"));
+        assert!(script.contains("set -e"));
+        assert!(script.contains("mkdir -p"));
+        assert!(script.contains("exec"));
+    }
+
+    #[test]
+    fn test_init_program_stored_correctly() {
+        let program = "/usr/bin/python3".to_string();
+        let init = SandboxInit::new(program.clone(), vec![]);
+
+        assert_eq!(init.program, program);
+    }
+
+    #[test]
+    fn test_init_args_stored_correctly() {
+        let args = vec!["arg1".to_string(), "arg2".to_string(), "arg3".to_string()];
+        let init = SandboxInit::new("/bin/test".to_string(), args.clone());
+
+        assert_eq!(init.args, args);
+    }
+
+    #[test]
+    fn test_init_clone() {
+        let init1 = SandboxInit::new("/bin/echo".to_string(), vec!["test".to_string()]);
+
+        let init2 = SandboxInit::new(init1.program.clone(), init1.args.clone());
+
+        assert_eq!(init1.program, init2.program);
+        assert_eq!(init1.args, init2.args);
+    }
+
+    #[test]
+    fn test_generate_init_script_empty_program() {
+        let script = generate_init_script("", &[]);
+
+        assert!(script.starts_with("#!/bin/sh"));
+        assert!(script.contains("exec \"\""));
+    }
+
+    #[test]
+    fn test_generate_init_script_preserves_shell_syntax() {
+        let script = generate_init_script("/bin/echo", &["hello"]);
+
+        assert!(script.contains("#!/bin/sh"));
+        assert!(script.contains("set -e"));
+        assert!(script.contains("mkdir -p"));
+        assert!(script.contains("exec"));
+    }
 }
