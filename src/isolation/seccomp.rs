@@ -49,6 +49,7 @@ pub struct SeccompFilter {
     blocked: HashSet<String>,
     kill_on_violation: bool,
     profile: SeccompProfile,
+    allow_unknown_syscalls: bool,
 }
 
 impl SeccompFilter {
@@ -60,6 +61,7 @@ impl SeccompFilter {
             blocked: HashSet::new(),
             kill_on_violation: true,
             profile,
+            allow_unknown_syscalls: false,
         }
     }
 
@@ -366,9 +368,23 @@ impl SeccompFilter {
         self.profile.clone()
     }
 
+    /// Set whether unknown syscalls should be allowed (warnings only)
+    ///
+    /// Default is false, which means unknown syscalls cause compilation errors.
+    /// Setting this to true allows filters with unknown syscalls to compile,
+    /// but those syscalls will be silently ignored.
+    pub fn set_allow_unknown_syscalls(&mut self, allow: bool) {
+        self.allow_unknown_syscalls = allow;
+    }
+
+    /// Check if unknown syscalls are allowed
+    pub fn allows_unknown_syscalls(&self) -> bool {
+        self.allow_unknown_syscalls
+    }
+
     /// Validate that filter is correct
     pub fn validate(&self) -> Result<()> {
-        if self.allowed.is_empty() {
+        if self.allowed.is_empty() && self.profile != SeccompProfile::Unrestricted {
             return Err(SandboxError::Seccomp(
                 "Filter has no allowed syscalls".to_string(),
             ));
@@ -466,6 +482,7 @@ mod tests {
             blocked: HashSet::new(),
             kill_on_violation: true,
             profile: SeccompProfile::Minimal,
+            allow_unknown_syscalls: false,
         };
         assert!(empty_filter.validate().is_err());
     }
@@ -504,5 +521,26 @@ mod tests {
                 let _ = compute.is_allowed(syscall);
             }
         }
+    }
+
+    #[test]
+    fn test_allow_unknown_syscalls_flag() {
+        let mut filter = SeccompFilter::minimal();
+        assert!(!filter.allows_unknown_syscalls());
+
+        filter.set_allow_unknown_syscalls(true);
+        assert!(filter.allows_unknown_syscalls());
+    }
+
+    #[test]
+    fn test_validate_unrestricted_with_no_allowed() {
+        let filter = SeccompFilter {
+            allowed: HashSet::new(),
+            blocked: HashSet::new(),
+            kill_on_violation: true,
+            profile: SeccompProfile::Unrestricted,
+            allow_unknown_syscalls: false,
+        };
+        assert!(filter.validate().is_ok());
     }
 }
