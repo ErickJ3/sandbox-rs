@@ -22,7 +22,7 @@ pub mod seccomp;
 pub mod seccomp_bpf;
 pub use namespace::{NamespaceConfig, NamespaceType};
 pub use seccomp::{SeccompFilter, SeccompProfile};
-pub use seccomp_bpf::SeccompCompiler;
+pub use seccomp_bpf::SeccompBpf;
 
 #[cfg(test)]
 mod tests;

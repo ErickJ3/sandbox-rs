@@ -148,4 +148,21 @@ mod tests {
         assert!(!is_root());
         set_root_override(None);
     }
+
+    #[test]
+    fn test_has_cgroup_v2() {
+        let result = has_cgroup_v2();
+        let _valid = match result {
+            true | false => true,
+        };
+    }
+
+    #[test]
+    fn test_cgroup_exists() {
+        use std::path::Path;
+        assert!(cgroup_exists(Path::new("/")));
+        assert!(!cgroup_exists(Path::new(
+            "/nonexistent/path/that/should/not/exist"
+        )));
+    }
 }

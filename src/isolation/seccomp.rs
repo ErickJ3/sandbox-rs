@@ -98,6 +98,8 @@ impl SeccompFilter {
             "writev",
             "pread64",
             "pwrite64",
+            "access",
+            "faccessat",
             // File operations
             "open",
             "openat",
@@ -129,6 +131,8 @@ impl SeccompFilter {
             "dup",
             "dup2",
             "dup3",
+            "pipe",
+            "pipe2",
             // Getting time
             "clock_gettime",
             "clock_getres",
@@ -141,9 +145,12 @@ impl SeccompFilter {
             "geteuid",
             "getgid",
             "getegid",
+            "uname",
             "getpgrp",
             "getpgid",
+            "setpgid",
             "getsid",
+            "setsid",
             // Limits
             "getrlimit",
             "setrlimit",
@@ -168,6 +175,11 @@ impl SeccompFilter {
             "getdents64",
             "prctl",
             "arch_prctl",
+            "rseq",
+            "newfstatat",
+            "getrandom",
+            "statx",
+            "prlimit64",
         ];
 
         for syscall in always_allowed {
@@ -202,7 +214,7 @@ impl SeccompFilter {
                     "fchownat",
                     "lchown",
                     "utimes",
-                    "futimes",
+                    "futimesat",
                     "utime",
                     "utimensat",
                     "truncate",
@@ -225,8 +237,6 @@ impl SeccompFilter {
             SeccompProfile::Compute => {
                 for syscall in &[
                     "sigaltstack",
-                    "sigprocmask",
-                    "signal",
                     "sched_yield",
                     "sched_getscheduler",
                     "sched_setscheduler",
@@ -265,10 +275,8 @@ impl SeccompFilter {
                     "recvmmsg",
                     "setsockopt",
                     "getsockopt",
-                    "setsockname",
                     "getsockname",
                     "getpeername",
-                    "socketcall",
                 ] {
                     syscalls.insert(syscall.to_string());
                 }

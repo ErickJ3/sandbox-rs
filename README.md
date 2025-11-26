@@ -105,6 +105,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### CLI
 
+**Native:**
+
 ```bash
 # Run program with sandbox
 sandbox-ctl run --id test-run --memory 256M --cpu 50 --timeout 30 /bin/echo "hello world"
@@ -115,6 +117,42 @@ sandbox-ctl profiles
 # Check system requirements
 sandbox-ctl check
 ```
+
+**Docker:**
+
+Run sandbox-ctl in a container without requiring root on the host machine:
+
+```bash
+# Build the Docker image
+docker build -t sandbox-rs .
+
+# Run sandbox-ctl with required permissions and cgroup access
+docker run --privileged --cgroupns=host \
+  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
+  sandbox-rs run \
+  --id test-run \
+  --memory 256M \
+  --cpu 50 \
+  --timeout 30 \
+  /bin/echo "hello world"
+
+# Or use docker-compose (already configured)
+docker-compose run sandbox-ctl run \
+  --id test-run \
+  --memory 256M \
+  --cpu 50 \
+  /bin/echo "hello world"
+
+# Interactive mode
+docker run -it --privileged --cgroupns=host \
+  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
+  sandbox-rs --help
+```
+
+**Note:** The container requires:
+- Privileged mode for Linux namespaces and seccomp filtering
+- Host cgroup namespace (`--cgroupns=host`) to manage cgroups
+- Mount of `/sys/fs/cgroup` from host for resource limiting
 
 ## Architecture
 

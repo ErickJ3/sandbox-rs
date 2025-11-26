@@ -180,6 +180,36 @@ pub struct SandboxResult {
     pub wall_time_ms: u64,
 }
 
+impl SandboxResult {
+    /// Check if process was killed by seccomp (SIGSYS - signal 31)
+    /// Returns true if exit code is 159 (128 + 31)
+    pub fn killed_by_seccomp(&self) -> bool {
+        self.exit_code == 159
+    }
+
+    /// Get human-readable error message if process failed due to seccomp
+    pub fn seccomp_error(&self) -> Option<&'static str> {
+        if self.killed_by_seccomp() {
+            Some("The action requires more permissions than were granted.")
+        } else {
+            None
+        }
+    }
+
+    /// Convert to Result, returning error if process was killed by seccomp
+    pub fn check_seccomp_error(&self) -> crate::errors::Result<&SandboxResult> {
+        if self.killed_by_seccomp() {
+            Err(SandboxError::PermissionDenied(
+                "The seccomp profile is too restrictive for this operation. \
+                 Try using a less restrictive profile (e.g., SeccompProfile::Compute or SeccompProfile::Unrestricted)"
+                    .to_string(),
+            ))
+        } else {
+            Ok(self)
+        }
+    }
+}
+
 /// Active sandbox
 pub struct Sandbox {
     config: SandboxConfig,
@@ -754,5 +784,76 @@ mod tests {
 
         assert!(has_stdout, "Should have captured stdout");
         assert!(has_exit, "Should have exit chunk");
+    }
+
+    #[test]
+    fn test_sandbox_result_killed_by_seccomp() {
+        let result = SandboxResult {
+            exit_code: 159,
+            signal: None,
+            timed_out: false,
+            memory_peak: 0,
+            cpu_time_us: 0,
+            wall_time_ms: 0,
+        };
+        assert!(result.killed_by_seccomp());
+    }
+
+    #[test]
+    fn test_sandbox_result_not_killed_by_seccomp() {
+        let result = SandboxResult {
+            exit_code: 0,
+            signal: None,
+            timed_out: false,
+            memory_peak: 0,
+            cpu_time_us: 0,
+            wall_time_ms: 0,
+        };
+        assert!(!result.killed_by_seccomp());
+    }
+
+    #[test]
+    fn test_sandbox_result_seccomp_error_message() {
+        let result = SandboxResult {
+            exit_code: 159,
+            signal: None,
+            timed_out: false,
+            memory_peak: 0,
+            cpu_time_us: 0,
+            wall_time_ms: 0,
+        };
+        let msg = result.seccomp_error();
+        assert!(msg.is_some());
+        assert!(msg.unwrap().contains("permissions"));
+    }
+
+    #[test]
+    fn test_sandbox_result_check_seccomp_error_when_killed() {
+        let result = SandboxResult {
+            exit_code: 159,
+            signal: None,
+            timed_out: false,
+            memory_peak: 0,
+            cpu_time_us: 0,
+            wall_time_ms: 0,
+        };
+        let check_result = result.check_seccomp_error();
+        assert!(check_result.is_err());
+        let err = check_result.unwrap_err();
+        assert!(err.to_string().contains("restrictive"));
+    }
+
+    #[test]
+    fn test_sandbox_result_check_seccomp_error_when_success() {
+        let result = SandboxResult {
+            exit_code: 0,
+            signal: None,
+            timed_out: false,
+            memory_peak: 0,
+            cpu_time_us: 0,
+            wall_time_ms: 0,
+        };
+        let check_result = result.check_seccomp_error();
+        assert!(check_result.is_ok());
     }
 }
