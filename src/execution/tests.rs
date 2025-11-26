@@ -328,3 +328,61 @@ fn stream_interleaved_stdout_stderr() {
         _ => panic!(),
     }
 }
+
+#[test]
+fn realtime_streaming_returns_immediately() {
+    use crate::execution::{ProcessExecutor, stream::StreamChunk};
+    let _guard = serial_guard();
+
+    let config = ProcessConfig {
+        program: "/bin/bash".to_string(),
+        args: vec![
+            "-c".to_string(),
+            "echo 'chunk1'; sleep 0.1; echo 'chunk2'".to_string(),
+        ],
+        ..Default::default()
+    };
+
+    let namespace = no_isolation_namespace();
+    let start = std::time::Instant::now();
+
+    let (_result, stream_opt) =
+        ProcessExecutor::execute_with_stream(config, namespace, true).unwrap();
+
+    let elapsed_at_return = start.elapsed();
+
+    assert!(
+        elapsed_at_return.as_millis() < 50,
+        "execute_with_stream should return immediately, took {}ms",
+        elapsed_at_return.as_millis()
+    );
+
+    assert!(stream_opt.is_some(), "Stream should be available");
+
+    let stream = stream_opt.unwrap();
+
+    let mut chunks = Vec::new();
+    let mut exit_received = false;
+    let timeout = std::time::Instant::now() + std::time::Duration::from_secs(5);
+
+    while std::time::Instant::now() < timeout {
+        match stream.try_recv() {
+            Ok(Some(chunk)) => match &chunk {
+                StreamChunk::Exit { .. } => {
+                    exit_received = true;
+                    chunks.push(chunk);
+                    break;
+                }
+                _ => chunks.push(chunk),
+            },
+            Ok(None) => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                continue;
+            }
+            Err(_) => break,
+        }
+    }
+
+    assert!(exit_received, "Should receive exit chunk");
+    assert!(chunks.len() > 1, "Should have received output before exit");
+}

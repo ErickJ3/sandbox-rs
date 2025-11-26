@@ -13,6 +13,7 @@ use nix::unistd::{Pid, chdir, chroot, execve};
 use std::ffi::CString;
 use std::os::fd::IntoRawFd;
 use std::os::unix::io::AsRawFd;
+use std::thread;
 
 /// Process execution configuration
 #[derive(Debug, Clone, Default)]
@@ -137,8 +138,6 @@ impl ProcessExecutor {
 
         match result {
             Ok(child_pid) => {
-                let start = std::time::Instant::now();
-
                 let (stream_writer, process_stream) = ProcessStream::new();
 
                 let tx1 = stream_writer.tx.clone();
@@ -151,16 +150,22 @@ impl ProcessExecutor {
                     SandboxError::Io(std::io::Error::other(format!("spawn reader failed: {}", e)))
                 })?;
 
-                let status = wait_for_child(child_pid)?;
-                let exec_time_ms = start.elapsed().as_millis() as u64;
+                thread::spawn(move || match wait_for_child(child_pid) {
+                    Ok(status) => {
+                        let _ = stream_writer.send_exit(status, None);
+                    }
+                    Err(_) => {
+                        let _ = stream_writer.send_exit(1, None);
+                    }
+                });
 
-                let _ = stream_writer.send_exit(status, None);
-
+                // Return immediately with the process stream
+                // The exit status is NOT known yet - it will be sent via the stream when available
                 let process_result = ProcessResult {
                     pid: child_pid,
-                    exit_status: status,
+                    exit_status: 0,
                     signal: None,
-                    exec_time_ms,
+                    exec_time_ms: 0,
                 };
 
                 Ok((process_result, Some(process_stream)))

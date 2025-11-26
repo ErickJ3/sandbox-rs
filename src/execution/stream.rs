@@ -1,8 +1,8 @@
 //! Stream handling for process output
 
 use crate::errors::{Result, SandboxError};
-use std::io::{BufRead, BufReader};
-use std::os::unix::io::{FromRawFd, RawFd};
+use std::os::fd::FromRawFd;
+use std::os::unix::io::RawFd;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
@@ -114,28 +114,30 @@ pub fn spawn_fd_reader(
     let handle = thread::spawn(move || {
         // SAFETY: This FD comes from a properly-managed pipe created by the parent.
         // We wrap it in OwnedFd to ensure proper cleanup.
+        use std::io::Read;
         use std::os::unix::io::OwnedFd;
 
         let owned_fd = unsafe { OwnedFd::from_raw_fd(fd) };
-        let file = std::fs::File::from(owned_fd);
-        let reader = BufReader::new(file);
+        let mut file = std::fs::File::from(owned_fd);
 
-        for line in reader.lines() {
-            match line {
-                Ok(line) => {
+        let mut buffer = vec![0u8; 4096];
+
+        loop {
+            match file.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(n) => {
+                    let data = String::from_utf8_lossy(&buffer[..n]).to_string();
                     let chunk = if is_stderr {
-                        StreamChunk::Stderr(line)
+                        StreamChunk::Stderr(data)
                     } else {
-                        StreamChunk::Stdout(line)
+                        StreamChunk::Stdout(data)
                     };
 
                     if tx.send(chunk).is_err() {
                         break;
                     }
                 }
-                Err(_) => {
-                    continue;
-                }
+                Err(_) => break,
             }
         }
     });
