@@ -47,7 +47,7 @@ pub mod controller;
 // Public API
 pub use controller::{Sandbox, SandboxBuilder, SandboxConfig};
 pub use errors::{Result, SandboxError};
-pub use execution::{ProcessConfig, ProcessResult};
+pub use execution::{ProcessConfig, ProcessResult, ProcessStream, StreamChunk};
 pub use isolation::{NamespaceConfig, SeccompProfile};
 pub use monitoring::{ProcessMonitor, ProcessState, ProcessStats};
 pub use network::{NetworkConfig, NetworkMode};

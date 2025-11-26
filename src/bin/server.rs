@@ -541,4 +541,238 @@ mod tests {
             StatusCode::NOT_FOUND
         );
     }
+
+    #[actix_web::test]
+    async fn create_sandbox_generates_uuid_when_no_id() {
+        let state = web::Data::new(AppState::new());
+        let create_req = web::Json(CreateSandboxRequest {
+            id: None,
+            memory_limit: None,
+            cpu_limit: None,
+            timeout: None,
+            seccomp_profile: None,
+            network_mode: None,
+            volumes: None,
+        });
+
+        let resp = create_sandbox(create_req, state).await;
+        assert_eq!(status_of(resp), StatusCode::CREATED);
+    }
+
+    #[actix_web::test]
+    async fn list_sandboxes_empty() {
+        let state = web::Data::new(AppState::new());
+        let resp = list_sandboxes(state).await;
+        assert_eq!(status_of(resp), StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn get_sandbox_not_found() {
+        let state = web::Data::new(AppState::new());
+        let resp = get_sandbox(web::Path::from("nonexistent".to_string()), state).await;
+        assert_eq!(status_of(resp), StatusCode::NOT_FOUND);
+    }
+
+    #[actix_web::test]
+    async fn get_status_not_found() {
+        let state = web::Data::new(AppState::new());
+        let resp = get_status(web::Path::from("nonexistent".to_string()), state).await;
+        assert_eq!(status_of(resp), StatusCode::NOT_FOUND);
+    }
+
+    #[actix_web::test]
+    async fn delete_sandbox_not_found() {
+        let state = web::Data::new(AppState::new());
+        let resp = delete_sandbox(web::Path::from("nonexistent".to_string()), state).await;
+        assert_eq!(status_of(resp), StatusCode::NOT_FOUND);
+    }
+
+    #[actix_web::test]
+    async fn run_sandbox_not_found() {
+        let state = web::Data::new(AppState::new());
+        let run_req = web::Json(RunSandboxRequest {
+            program: "/bin/echo".to_string(),
+            args: None,
+            env: None,
+        });
+        let resp = run_sandbox(web::Path::from("nonexistent".to_string()), run_req, state).await;
+        assert_eq!(status_of(resp), StatusCode::NOT_FOUND);
+    }
+
+    #[actix_web::test]
+    async fn create_sandbox_with_different_seccomp_profiles() {
+        let state = web::Data::new(AppState::new());
+
+        let profiles = vec!["minimal", "io-heavy", "compute", "network", "unrestricted"];
+
+        for profile in profiles {
+            let create_req = web::Json(CreateSandboxRequest {
+                id: Some(format!("test-{}", profile)),
+                memory_limit: None,
+                cpu_limit: None,
+                timeout: None,
+                seccomp_profile: Some(profile.to_string()),
+                network_mode: None,
+                volumes: None,
+            });
+
+            let resp = create_sandbox(create_req, state.clone()).await;
+            assert_eq!(status_of(resp), StatusCode::CREATED);
+        }
+    }
+
+    #[actix_web::test]
+    async fn run_sandbox_with_env_vars() {
+        let state = web::Data::new(AppState::new());
+        let create_req = web::Json(CreateSandboxRequest {
+            id: Some("env-test".to_string()),
+            memory_limit: None,
+            cpu_limit: None,
+            timeout: None,
+            seccomp_profile: None,
+            network_mode: None,
+            volumes: None,
+        });
+
+        create_sandbox(create_req, state.clone()).await;
+
+        let mut env = std::collections::HashMap::new();
+        env.insert("MY_VAR".to_string(), "my_value".to_string());
+
+        let run_req = web::Json(RunSandboxRequest {
+            program: "/bin/echo".to_string(),
+            args: Some(vec!["test".to_string()]),
+            env: Some(env),
+        });
+
+        let resp = run_sandbox(web::Path::from("env-test".to_string()), run_req, state).await;
+        assert_eq!(status_of(resp), StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn create_sandbox_with_cpu_limit() {
+        let state = web::Data::new(AppState::new());
+        let create_req = web::Json(CreateSandboxRequest {
+            id: Some("cpu-test".to_string()),
+            memory_limit: None,
+            cpu_limit: Some(75),
+            timeout: None,
+            seccomp_profile: None,
+            network_mode: None,
+            volumes: None,
+        });
+
+        let resp = create_sandbox(create_req, state).await;
+        assert_eq!(status_of(resp), StatusCode::CREATED);
+    }
+
+    #[actix_web::test]
+    async fn create_sandbox_with_timeout() {
+        let state = web::Data::new(AppState::new());
+        let create_req = web::Json(CreateSandboxRequest {
+            id: Some("timeout-test".to_string()),
+            memory_limit: None,
+            cpu_limit: None,
+            timeout: Some(30),
+            seccomp_profile: None,
+            network_mode: None,
+            volumes: None,
+        });
+
+        let resp = create_sandbox(create_req, state).await;
+        assert_eq!(status_of(resp), StatusCode::CREATED);
+    }
+
+    #[actix_web::test]
+    async fn list_sandboxes_after_creation() {
+        let state = web::Data::new(AppState::new());
+
+        let create_req = web::Json(CreateSandboxRequest {
+            id: Some("list-test".to_string()),
+            memory_limit: None,
+            cpu_limit: None,
+            timeout: None,
+            seccomp_profile: None,
+            network_mode: None,
+            volumes: None,
+        });
+
+        create_sandbox(create_req, state.clone()).await;
+
+        let resp = list_sandboxes(state).await;
+        assert_eq!(status_of(resp), StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn api_response_ok_structure() {
+        let response: ApiResponse<String> =
+            ApiResponse::ok("test message", "test data".to_string());
+        assert!(response.success);
+        assert_eq!(response.message, "test message");
+        assert_eq!(response.data, Some("test data".to_string()));
+    }
+
+    #[actix_web::test]
+    async fn sandbox_metadata_creation() {
+        let metadata = SandboxMetadata {
+            id: "test".to_string(),
+            status: "created".to_string(),
+            created_at: chrono::Utc::now(),
+            memory_limit: Some("100M".to_string()),
+            cpu_limit: Some(50),
+            seccomp_profile: "Minimal".to_string(),
+            last_execution: None,
+        };
+
+        assert_eq!(metadata.id, "test");
+        assert_eq!(metadata.status, "created");
+        assert_eq!(metadata.memory_limit, Some("100M".to_string()));
+        assert_eq!(metadata.cpu_limit, Some(50));
+    }
+
+    #[actix_web::test]
+    async fn create_sandbox_invalid_memory_limit() {
+        let state = web::Data::new(AppState::new());
+        let create_req = web::Json(CreateSandboxRequest {
+            id: Some("invalid-mem".to_string()),
+            memory_limit: Some("invalid".to_string()),
+            cpu_limit: None,
+            timeout: None,
+            seccomp_profile: None,
+            network_mode: None,
+            volumes: None,
+        });
+
+        let resp = create_sandbox(create_req, state).await;
+        assert_eq!(status_of(resp), StatusCode::BAD_REQUEST);
+    }
+
+    #[actix_web::test]
+    async fn run_sandbox_with_args() {
+        let state = web::Data::new(AppState::new());
+        let create_req = web::Json(CreateSandboxRequest {
+            id: Some("run-test".to_string()),
+            memory_limit: None,
+            cpu_limit: None,
+            timeout: None,
+            seccomp_profile: None,
+            network_mode: None,
+            volumes: None,
+        });
+
+        create_sandbox(create_req, state.clone()).await;
+
+        let run_req = web::Json(RunSandboxRequest {
+            program: "/bin/echo".to_string(),
+            args: Some(vec![
+                "arg1".to_string(),
+                "arg2".to_string(),
+                "arg3".to_string(),
+            ]),
+            env: None,
+        });
+
+        let resp = run_sandbox(web::Path::from("run-test".to_string()), run_req, state).await;
+        assert_eq!(status_of(resp), StatusCode::OK);
+    }
 }

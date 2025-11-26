@@ -24,8 +24,10 @@
 
 pub mod init;
 pub mod process;
+pub mod stream;
 pub use init::SandboxInit;
 pub use process::{ProcessConfig, ProcessExecutor, ProcessResult};
+pub use stream::{ProcessStream, StreamChunk};
 
 #[cfg(test)]
 mod tests;
