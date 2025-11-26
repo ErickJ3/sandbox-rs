@@ -43,6 +43,46 @@ fn process_monitor_graceful_shutdown_terminates_child() {
 }
 
 #[test]
+fn process_monitor_send_sigterm_stops_child() {
+    let _guard = serial_guard();
+    let mut child = std::process::Command::new("sleep")
+        .arg("5")
+        .spawn()
+        .expect("spawn sleep");
+    let pid = Pid::from_raw(child.id() as i32);
+    let monitor = ProcessMonitor::new(pid).expect("child process exists");
+    monitor.send_sigterm().expect("send sigterm");
+    let status = child.wait().expect("wait on child");
+    assert!(!status.success());
+}
+
+#[test]
+fn process_monitor_send_sigkill_always_stops_child() {
+    let _guard = serial_guard();
+    let mut child = std::process::Command::new("sleep")
+        .arg("5")
+        .spawn()
+        .expect("spawn sleep");
+    let pid = Pid::from_raw(child.id() as i32);
+    let monitor = ProcessMonitor::new(pid).expect("child process exists");
+    monitor.send_sigkill().expect("send sigkill");
+    let status = child.wait().expect("wait on child");
+    assert!(!status.success());
+}
+
+#[test]
+fn process_monitor_is_alive_false_after_exit() {
+    let _guard = serial_guard();
+    let mut child = std::process::Command::new("true")
+        .spawn()
+        .expect("spawn true");
+    let pid = Pid::from_raw(child.id() as i32);
+    let monitor = ProcessMonitor::new(pid).expect("child process exists");
+    child.wait().expect("wait on child");
+    assert!(!monitor.is_alive().expect("is_alive result"));
+}
+
+#[test]
 fn ebpf_monitor_aggregates_events_and_slowest_calls() {
     let pid = Pid::from_raw(std::process::id() as i32);
     let mut monitor = EBpfMonitor::new(pid);

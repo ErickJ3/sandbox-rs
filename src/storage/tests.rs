@@ -68,6 +68,27 @@ fn layer_info_counts_files_and_bytes() {
 }
 
 #[test]
+fn overlay_config_setup_directories_create_paths() {
+    let (_temp, config) = overlay_environment();
+    config.setup_directories().unwrap();
+    assert!(config.upper.exists());
+    assert!(config.work.exists());
+    assert!(config.merged.exists());
+}
+
+#[test]
+fn overlay_fs_cleanup_resets_state_and_removes_workdir() {
+    let (_temp, config) = overlay_environment();
+    let work_dir = config.work.clone();
+    let mut overlay = OverlayFS::new(config);
+    overlay.setup().unwrap();
+    assert!(overlay.is_mounted());
+    overlay.cleanup().unwrap();
+    assert!(!overlay.is_mounted());
+    assert!(!work_dir.exists());
+}
+
+#[test]
 fn volume_mount_validation_for_bind_paths() {
     let temp = tempdir().unwrap();
     let src = temp.path().join("src");

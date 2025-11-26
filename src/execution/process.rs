@@ -4,7 +4,7 @@ use crate::errors::{Result, SandboxError};
 use crate::execution::stream::{ProcessStream, spawn_fd_reader};
 use crate::isolation::namespace::NamespaceConfig;
 use crate::isolation::seccomp::SeccompFilter;
-use crate::isolation::seccomp_bpf::SeccompCompiler;
+use crate::isolation::seccomp_bpf::SeccompBpf;
 use crate::utils;
 use log::warn;
 use nix::sched::clone;
@@ -179,7 +179,7 @@ impl ProcessExecutor {
         // Apply seccomp filter
         if let Some(filter) = &config.seccomp {
             if utils::is_root() {
-                if let Err(e) = SeccompCompiler::load(filter) {
+                if let Err(e) = SeccompBpf::load(filter) {
                     eprintln!("Failed to load seccomp: {}", e);
                     return 1;
                 }

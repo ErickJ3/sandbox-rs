@@ -278,4 +278,20 @@ mod tests {
         assert!(peak1 > 0);
         assert!(peak2 >= peak1);
     }
+
+    #[test]
+    fn test_process_stats_from_proc_missing_file() {
+        let invalid_pid = 9_999_999i32;
+        let timestamp = Instant::now();
+        let result = ProcessStats::from_proc(invalid_pid, timestamp);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_stats_from_proc_invalid_format() {
+        let pid = std::process::id() as i32;
+        let timestamp = Instant::now();
+        let result = ProcessStats::from_proc(pid, timestamp);
+        assert!(result.is_ok());
+    }
 }
