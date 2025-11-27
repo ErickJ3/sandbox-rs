@@ -24,6 +24,9 @@ keywords = ["sandbox", "isolation", "security", "linux", "seccomp"]
 categories = ["development-tools", "os"]
 readme = "README.md"
 
+[workspace.dependencies]
+sandbox-rs = { path = "." }
+
 [dependencies]
 nix = { version = "0.30", features = ["process", "sched", "mount", "resource", "signal", "fs"] }
 libc = "0.2"
