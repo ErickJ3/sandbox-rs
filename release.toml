@@ -1,26 +1,14 @@
-[workspace]
 allow-branch = ["main"]
-members = [".", "sandbox-ctl"]
+push = true
+push-remote = "origin"
+consolidate-commits = true
 
 pre-release-commit-message = "chore: release {{version}}"
-post-release-commit-message = "chore: bump version to {{next_version}}"
 tag-message = "Release {{version}}"
 tag-prefix = "v"
 tag-name = "v{{version}}"
-push = true
-push-remote = "origin"
 
-[[pre-release-hook]]
-command = "cargo"
-args = ["test", "--workspace"]
-
-[[pre-release-hook]]
-command = "cargo"
-args = ["fmt", "--all", "--check"]
-
-[[pre-release-hook]]
-command = "cargo"
-args = ["clippy", "--workspace", "--", "-D", "warnings"]
+pre-release-hook = "cargo test --workspace && cargo fmt --all --check && cargo clippy --workspace -- -D warnings"
 
 [[pre-release-replacements]]
 file = "sandbox-ctl/Cargo.toml"
