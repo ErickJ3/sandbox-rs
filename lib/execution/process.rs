@@ -9,14 +9,16 @@ use crate::utils;
 use log::warn;
 use nix::sched::clone;
 use nix::sys::signal::Signal;
-use nix::unistd::{Pid, chdir, chroot, execve};
+use nix::unistd::{AccessFlags, Pid, access, chdir, chroot, execve};
 use std::ffi::CString;
+use std::mem;
 use std::os::fd::IntoRawFd;
 use std::os::unix::io::AsRawFd;
+use std::path::Path;
 use std::thread;
 
 /// Process execution configuration
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ProcessConfig {
     /// Program to execute
     pub program: String,
@@ -34,6 +36,79 @@ pub struct ProcessConfig {
     pub gid: Option<u32>,
     /// Seccomp filter
     pub seccomp: Option<SeccompFilter>,
+    /// Whether to inherit the parent environment (with optional overrides)
+    pub inherit_env: bool,
+}
+
+impl Default for ProcessConfig {
+    fn default() -> Self {
+        Self {
+            program: String::new(),
+            args: Vec::new(),
+            env: Vec::new(),
+            cwd: None,
+            chroot_dir: None,
+            uid: None,
+            gid: None,
+            seccomp: None,
+            inherit_env: true,
+        }
+    }
+}
+
+impl ProcessConfig {
+    /// Ensure the environment vector reflects the inherited parent environment (plus overrides)
+    fn prepare_environment(&mut self) {
+        if !self.inherit_env {
+            return;
+        }
+
+        let overrides = mem::take(&mut self.env);
+        let mut combined: Vec<(String, String)> = std::env::vars().collect();
+
+        if overrides.is_empty() {
+            self.env = combined;
+            return;
+        }
+
+        for (key, value) in overrides {
+            if let Some((_, existing)) = combined.iter_mut().find(|(k, _)| k == &key) {
+                *existing = value;
+            } else {
+                combined.push((key, value));
+            }
+        }
+
+        self.env = combined;
+    }
+}
+
+/// Resolve a program name to an absolute path using PATH semantics.
+fn resolve_program_path(
+    program: &str,
+    env: &[(String, String)],
+) -> std::result::Result<String, String> {
+    if program.contains('/') {
+        return Ok(program.to_string());
+    }
+
+    const DEFAULT_PATH: &str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    let path_value = env
+        .iter()
+        .find(|(key, _)| key == "PATH")
+        .map(|(_, value)| value.as_str())
+        .unwrap_or(DEFAULT_PATH);
+
+    for entry in path_value.split(':') {
+        let dir = if entry.is_empty() { "." } else { entry };
+        let candidate = Path::new(dir).join(program);
+
+        if access(&candidate, AccessFlags::X_OK).is_ok() {
+            return Ok(candidate.to_string_lossy().into_owned());
+        }
+    }
+
+    Err(format!("execve failed: command not found: {}", program))
 }
 
 /// Result of process execution
@@ -55,7 +130,7 @@ pub struct ProcessExecutor;
 impl ProcessExecutor {
     /// Execute process with namespace isolation
     pub fn execute(
-        config: ProcessConfig,
+        mut config: ProcessConfig,
         namespace_config: NamespaceConfig,
     ) -> Result<ProcessResult> {
         let flags = namespace_config.to_clone_flags();
@@ -64,6 +139,7 @@ impl ProcessExecutor {
         // Using stack for child function
         let mut child_stack = vec![0u8; 8192]; // 8KB stack
 
+        config.prepare_environment();
         let config_ptr = Box::into_raw(Box::new(config.clone()));
 
         // Clone and execute
@@ -100,7 +176,7 @@ impl ProcessExecutor {
 
     /// Execute process with streaming output
     pub fn execute_with_stream(
-        config: ProcessConfig,
+        mut config: ProcessConfig,
         namespace_config: NamespaceConfig,
         enable_streams: bool,
     ) -> Result<(ProcessResult, Option<ProcessStream>)> {
@@ -117,6 +193,7 @@ impl ProcessExecutor {
         let flags = namespace_config.to_clone_flags();
         let mut child_stack = vec![0u8; 8192];
 
+        config.prepare_environment();
         let config_ptr = Box::into_raw(Box::new(config.clone()));
         let stdout_write_fd = stdout_write.as_raw_fd();
         let stderr_write_fd = stderr_write.as_raw_fd();
@@ -176,8 +253,20 @@ impl ProcessExecutor {
 
     /// Setup child process environment
     fn child_setup(config: ProcessConfig) -> isize {
+        let ProcessConfig {
+            program,
+            args,
+            env,
+            cwd,
+            chroot_dir,
+            uid,
+            gid,
+            seccomp,
+            inherit_env: _,
+        } = config;
+
         // Apply seccomp filter
-        if let Some(filter) = &config.seccomp {
+        if let Some(filter) = &seccomp {
             if utils::is_root() {
                 if let Err(e) = SeccompBpf::load(filter) {
                     eprintln!("Failed to load seccomp: {}", e);
@@ -189,7 +278,7 @@ impl ProcessExecutor {
         }
 
         // Change root if specified
-        if let Some(chroot_path) = &config.chroot_dir {
+        if let Some(chroot_path) = &chroot_dir {
             if utils::is_root() {
                 if let Err(e) = chroot(chroot_path.as_str()) {
                     eprintln!("chroot failed: {}", e);
@@ -201,14 +290,14 @@ impl ProcessExecutor {
         }
 
         // Change directory
-        let cwd = config.cwd.as_deref().unwrap_or("/");
+        let cwd = cwd.as_deref().unwrap_or("/");
         if let Err(e) = chdir(cwd) {
             eprintln!("chdir failed: {}", e);
             return 1;
         }
 
         // Set UID/GID if specified
-        if let Some(gid) = config.gid {
+        if let Some(gid) = gid {
             if utils::is_root() {
                 if unsafe { libc::setgid(gid) } != 0 {
                     eprintln!("setgid failed");
@@ -219,7 +308,7 @@ impl ProcessExecutor {
             }
         }
 
-        if let Some(uid) = config.uid {
+        if let Some(uid) = uid {
             if utils::is_root() {
                 if unsafe { libc::setuid(uid) } != 0 {
                     eprintln!("setuid failed");
@@ -231,16 +320,23 @@ impl ProcessExecutor {
         }
 
         // Prepare environment
-        let env_vars: Vec<CString> = config
-            .env
+        let env_vars: Vec<CString> = env
             .iter()
             .map(|(k, v)| CString::new(format!("{}={}", k, v)).unwrap())
             .collect();
 
         let env_refs: Vec<&CString> = env_vars.iter().collect();
 
+        let resolved_program = match resolve_program_path(&program, &env) {
+            Ok(path) => path,
+            Err(err) => {
+                eprintln!("{}", err);
+                return 1;
+            }
+        };
+
         // Execute program
-        let program_cstring = match CString::new(config.program.clone()) {
+        let program_cstring = match CString::new(resolved_program) {
             Ok(s) => s,
             Err(_) => {
                 eprintln!("program name contains nul byte");
@@ -248,8 +344,7 @@ impl ProcessExecutor {
             }
         };
 
-        let args_cstrings: Vec<CString> = config
-            .args
+        let args_cstrings: Vec<CString> = args
             .iter()
             .map(|s| CString::new(s.clone()).unwrap_or_else(|_| CString::new("").unwrap()))
             .collect();
@@ -468,6 +563,7 @@ mod tests {
             uid: Some(1000),
             gid: Some(1000),
             seccomp: None,
+            inherit_env: true,
         };
 
         let cloned = original.clone();
@@ -478,6 +574,24 @@ mod tests {
         assert_eq!(original.chroot_dir, cloned.chroot_dir);
         assert_eq!(original.uid, cloned.uid);
         assert_eq!(original.gid, cloned.gid);
+    }
+
+    #[test]
+    fn resolve_program_path_uses_env_path() {
+        let env = vec![("PATH".to_string(), "/bin:/usr/bin".to_string())];
+        let resolved = super::resolve_program_path("ls", &env).unwrap();
+        assert!(
+            resolved.ends_with("/ls"),
+            "expected ls in path, got {}",
+            resolved
+        );
+    }
+
+    #[test]
+    fn resolve_program_path_reports_missing_binary() {
+        let env = vec![("PATH".to_string(), "/nonexistent".to_string())];
+        let err = super::resolve_program_path("definitely_missing_cmd", &env).unwrap_err();
+        assert!(err.contains("command not found"));
     }
 
     #[test]

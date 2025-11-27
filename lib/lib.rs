@@ -28,23 +28,15 @@
 //! let result = sandbox.run("/bin/echo", &["hello world"])?;
 //! println!("Exit code: {}", result.exit_code);
 //! ```
-
-// Core modules
+pub mod controller;
 pub mod errors;
-pub mod utils;
-
-// Layered modules
 pub mod execution;
 pub mod isolation;
 pub mod monitoring;
 pub mod network;
 pub mod resources;
 pub mod storage;
-
-// Main controller
-pub mod controller;
-
-// Public API
+pub mod utils;
 pub use controller::{Sandbox, SandboxBuilder, SandboxConfig};
 pub use errors::{Result, SandboxError};
 pub use execution::{ProcessConfig, ProcessResult, ProcessStream, StreamChunk};
@@ -52,17 +44,6 @@ pub use isolation::{NamespaceConfig, SeccompProfile};
 pub use monitoring::{ProcessMonitor, ProcessState, ProcessStats};
 pub use network::{NetworkConfig, NetworkMode};
 pub use storage::{OverlayConfig, OverlayFS};
-
-#[cfg(test)]
-mod tests {
-    use crate::SandboxBuilder;
-
-    #[test]
-    fn test_module_imports() {
-        // Verify core API is accessible
-        let _builder = SandboxBuilder::new("test");
-    }
-}
 
 #[cfg(test)]
 pub mod test_support {

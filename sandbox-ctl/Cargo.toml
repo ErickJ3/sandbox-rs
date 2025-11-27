@@ -1,0 +1,21 @@
+[package]
+name = "sandbox-ctl"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "CLI tool for sandbox-rs - A comprehensive Rust sandbox implementation"
+keywords = ["sandbox", "isolation", "security", "linux", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+sandbox-rs = { path = "..", version = "0.1.3" }
+clap = { version = "4.5", features = ["derive"] }
+log = "0.4"
+env_logger = "0.11"
+
+[[bin]]
+name = "sandbox-ctl"
+path = "src/main.rs"

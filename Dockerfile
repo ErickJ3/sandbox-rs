@@ -2,20 +2,12 @@ FROM rust:1.91-bookworm AS builder
 
 WORKDIR /build
 
+# Copy workspace sources
 COPY Cargo.toml Cargo.lock ./
+COPY lib ./lib
+COPY sandbox-ctl ./sandbox-ctl
 
-RUN mkdir src && \
-    echo "fn main() {}" > src/main.rs && \
-    mkdir -p src/bin && \
-    echo "fn main() {}" > src/bin/main.rs
-
-RUN cargo build --release && \
-    rm -rf src
-COPY src ./src
-COPY examples ./examples
-
-RUN touch src/lib.rs src/bin/main.rs && \
-    cargo build --release --bin sandbox-ctl
+RUN cargo build --release --locked --package sandbox-ctl
 
 FROM debian:bookworm-slim
 

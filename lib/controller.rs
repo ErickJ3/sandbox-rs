@@ -281,11 +281,10 @@ impl Sandbox {
             );
         }
 
-        // Create process configuration with namespace and seccomp settings
         let process_config = ProcessConfig {
             program: program.to_string(),
             args: args.iter().map(|s| s.to_string()).collect(),
-            env: Vec::new(), // Inherit parent environment
+            env: Vec::new(),
             cwd: None,
             chroot_dir: None,
             uid: None,
@@ -293,6 +292,7 @@ impl Sandbox {
             seccomp: Some(crate::isolation::seccomp::SeccompFilter::from_profile(
                 self.config.seccomp_profile.clone(),
             )),
+            inherit_env: true,
         };
 
         // Execute with namespace isolation
@@ -313,11 +313,10 @@ impl Sandbox {
                 signal: process_result.signal,
                 timed_out: false,
                 memory_peak,
-                cpu_time_us: process_result.exec_time_ms * 1000, // Convert ms to us
+                cpu_time_us: process_result.exec_time_ms * 1000,
                 wall_time_ms,
             })
         } else {
-            // Fallback: run without full namespace isolation (for testing)
             warn!("Running without full isolation (not root). Use sudo for production sandboxes.");
             let output = Command::new(program)
                 .args(args)
@@ -375,6 +374,7 @@ impl Sandbox {
             seccomp: Some(crate::isolation::seccomp::SeccompFilter::from_profile(
                 self.config.seccomp_profile.clone(),
             )),
+            inherit_env: true,
         };
 
         let (process_result, stream) = ProcessExecutor::execute_with_stream(
@@ -426,7 +426,6 @@ impl Sandbox {
 
 impl Drop for Sandbox {
     fn drop(&mut self) {
-        // Clean up on drop
         let _ = self.kill();
     }
 }

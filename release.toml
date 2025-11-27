@@ -1,0 +1,28 @@
+[workspace]
+allow-branch = ["main"]
+members = [".", "sandbox-ctl"]
+
+pre-release-commit-message = "chore: release {{version}}"
+post-release-commit-message = "chore: bump version to {{next_version}}"
+tag-message = "Release {{version}}"
+tag-prefix = "v"
+tag-name = "v{{version}}"
+push = true
+push-remote = "origin"
+
+[[pre-release-hook]]
+command = "cargo"
+args = ["test", "--workspace"]
+
+[[pre-release-hook]]
+command = "cargo"
+args = ["fmt", "--all", "--check"]
+
+[[pre-release-hook]]
+command = "cargo"
+args = ["clippy", "--workspace", "--", "-D", "warnings"]
+
+[[pre-release-replacements]]
+file = "sandbox-ctl/Cargo.toml"
+search = 'sandbox-rs = { path = "..", version = "[^"]+"'
+replace = 'sandbox-rs = { path = "..", version = "{{version}}"'

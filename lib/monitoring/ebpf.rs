@@ -69,15 +69,8 @@ impl EBpfMonitor {
     }
 
     /// Collect syscall statistics
-    ///
-    /// In a production implementation, this would:
-    /// 1. Attach eBPF programs to kernel tracepoints
-    /// 2. Use ring buffers to collect syscall events
-    /// 3. Aggregate statistics from collected events
-    /// 4. Analyze slow syscalls
     pub fn collect_stats(&mut self) -> Result<SyscallStats> {
         // This is a placeholder implementation
-        // Real implementation would use eBPF via libbpf or similar
         self._compute_statistics();
         Ok(self.stats.clone())
     }
