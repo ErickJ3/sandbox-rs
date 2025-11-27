@@ -103,7 +103,6 @@ impl VolumeMount {
             ));
         }
 
-        // Validate bind mounts exist
         if self.volume_type == VolumeType::Bind || self.volume_type == VolumeType::ReadOnly {
             let source_path = Path::new(&self.source);
             if !source_path.exists() {

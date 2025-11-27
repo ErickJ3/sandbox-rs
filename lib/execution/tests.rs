@@ -17,6 +17,7 @@ fn sample_process_config() -> ProcessConfig {
         uid: Some(1000),
         gid: Some(1000),
         seccomp: Some(SeccompFilter::from_profile(SeccompProfile::Minimal)),
+        inherit_env: true,
     }
 }
 

@@ -1,5 +1,7 @@
 # sandbox-rs
 
+⚠️ In active development, use with caution.
+
 A comprehensive Rust sandbox implementation that provides process isolation, resource limiting, and syscall filtering for secure program execution.
 
 ![Tests](https://img.shields.io/github/actions/workflow/status/ErickJ3/sandbox-rs/ci.yml?branch=main&label=test)

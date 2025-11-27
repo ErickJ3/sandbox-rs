@@ -98,8 +98,7 @@ impl OverlayFS {
         self.config.validate()?;
         self.config.setup_directories()?;
 
-        // Note: Actual mount would require root and real mount syscall
-        // For now, we just prepare the structure
+        // TODO: Actual mount would require root and real mount syscall
         self.mounted = true;
         Ok(())
     }
