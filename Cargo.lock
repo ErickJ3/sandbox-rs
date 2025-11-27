@@ -361,7 +361,7 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
 name = "sandbox-ctl"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "clap",
  "env_logger",
@@ -371,7 +371,7 @@ dependencies = [
 
 [[package]]
 name = "sandbox-rs"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "libc",
