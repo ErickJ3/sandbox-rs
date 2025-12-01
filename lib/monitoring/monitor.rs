@@ -97,12 +97,18 @@ impl ProcessStats {
         // Read /proc/{pid}/status for additional info (placeholder for future enhancements)
         let _status_content = fs::read_to_string(&status_path).unwrap_or_default();
 
-        // Calculate CPU time in milliseconds (utime + stime, assuming 100Hz)
-        // Kernel reports in clock ticks, typically 100Hz on Linux
-        let cpu_time_ms = ((utime + stime) * 10) as u64; // 10ms per tick at 100Hz
+        // Calculate CPU time in milliseconds
+        // Kernel reports in clock ticks, get actual CLK_TCK from system
+        let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as u64;
+        let cpu_time_ms = if clk_tck > 0 {
+            ((utime + stime) * 1000) / clk_tck
+        } else {
+            0
+        };
 
-        // RSS is in pages, convert to bytes (typically 4KB pages)
-        let rss_bytes = rss * 4096;
+        // RSS is in pages, convert to bytes using actual page size
+        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as u64;
+        let rss_bytes = rss * page_size;
         let memory_usage_mb = rss_bytes / (1024 * 1024);
 
         Ok(ProcessStats {

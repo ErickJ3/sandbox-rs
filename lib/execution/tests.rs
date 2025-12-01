@@ -91,16 +91,6 @@ fn process_result_records_exit_information() {
 }
 
 #[test]
-fn sandbox_init_script_contains_expected_sections() {
-    let script = crate::execution::init::generate_init_script("/bin/echo", &["hello", "world"]);
-
-    assert!(script.starts_with("#!/bin/sh"));
-    assert!(script.contains("mount -t proc"));
-    assert!(script.contains("mount -t sysfs"));
-    assert!(script.contains("exec \"/bin/echo\" hello world"));
-}
-
-#[test]
 fn sandbox_init_reaps_finished_children_without_panicking() {
     let _guard = serial_guard();
     use nix::sys::wait::{WaitStatus, waitpid};

@@ -37,6 +37,7 @@ serde_json = "1.0"
 tempfile = "3.23"
 log = "0.4"
 seccompiler = "0.5"
+walkdir = "2.5"
 
 [lib]
 name = "sandbox_rs"

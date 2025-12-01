@@ -56,6 +56,12 @@ impl OverlayConfig {
         fs::create_dir_all(&self.upper)
             .map_err(|e| SandboxError::Syscall(format!("Failed to create upper layer: {}", e)))?;
 
+        if self.work.exists() {
+            fs::remove_dir_all(&self.work).map_err(|e| {
+                SandboxError::Syscall(format!("Failed to clean work directory: {}", e))
+            })?;
+        }
+
         fs::create_dir_all(&self.work).map_err(|e| {
             SandboxError::Syscall(format!("Failed to create work directory: {}", e))
         })?;
@@ -67,14 +73,25 @@ impl OverlayConfig {
         Ok(())
     }
 
-    /// Get overlay mount string for mount command
-    pub fn get_mount_options(&self) -> String {
-        format!(
+    /// Get overlay mount options as String for mount syscall
+    pub fn get_mount_options(&self) -> Result<String> {
+        let lower_str = self
+            .lower
+            .to_str()
+            .ok_or_else(|| SandboxError::Syscall("Lower path is not valid UTF-8".to_string()))?;
+        let upper_str = self
+            .upper
+            .to_str()
+            .ok_or_else(|| SandboxError::Syscall("Upper path is not valid UTF-8".to_string()))?;
+        let work_str = self
+            .work
+            .to_str()
+            .ok_or_else(|| SandboxError::Syscall("Work path is not valid UTF-8".to_string()))?;
+
+        Ok(format!(
             "lowerdir={},upperdir={},workdir={}",
-            self.lower.display(),
-            self.upper.display(),
-            self.work.display()
-        )
+            lower_str, upper_str, work_str
+        ))
     }
 }
 
@@ -98,7 +115,42 @@ impl OverlayFS {
         self.config.validate()?;
         self.config.setup_directories()?;
 
-        // TODO: Actual mount would require root and real mount syscall
+        use std::ffi::CString;
+
+        let fstype = CString::new("overlay")
+            .map_err(|_| SandboxError::Syscall("Invalid filesystem type".to_string()))?;
+
+        let source = CString::new("overlay")
+            .map_err(|_| SandboxError::Syscall("Invalid source".to_string()))?;
+
+        let target_str =
+            self.config.merged.to_str().ok_or_else(|| {
+                SandboxError::Syscall("Merged path is not valid UTF-8".to_string())
+            })?;
+        let target = CString::new(target_str)
+            .map_err(|_| SandboxError::Syscall("Invalid target path".to_string()))?;
+
+        let options_str = self.config.get_mount_options()?;
+        let options = CString::new(options_str.as_str())
+            .map_err(|_| SandboxError::Syscall("Invalid mount options".to_string()))?;
+
+        let ret = unsafe {
+            libc::mount(
+                source.as_ptr(),
+                target.as_ptr(),
+                fstype.as_ptr(),
+                0,
+                options.as_ptr() as *const libc::c_void,
+            )
+        };
+
+        if ret != 0 {
+            return Err(SandboxError::Syscall(format!(
+                "Failed to mount overlay filesystem: {}",
+                std::io::Error::last_os_error()
+            )));
+        }
+
         self.mounted = true;
         Ok(())
     }
@@ -126,7 +178,27 @@ impl OverlayFS {
     /// Cleanup overlay filesystem
     pub fn cleanup(&mut self) -> Result<()> {
         if self.mounted {
-            // Unmount would go here
+            use std::ffi::CString;
+            use std::os::unix::ffi::OsStrExt;
+
+            let target = CString::new(self.config.merged.as_os_str().as_bytes()).map_err(|_| {
+                SandboxError::Syscall("Invalid target path for unmount".to_string())
+            })?;
+
+            let ret = unsafe { libc::umount2(target.as_ptr(), libc::MNT_DETACH) };
+
+            if ret != 0 {
+                let err = std::io::Error::last_os_error();
+                if err.raw_os_error() != Some(libc::EINVAL)
+                    && err.raw_os_error() != Some(libc::ENOENT)
+                {
+                    return Err(SandboxError::Syscall(format!(
+                        "Failed to unmount overlay filesystem: {}",
+                        err
+                    )));
+                }
+            }
+
             self.mounted = false;
         }
 
@@ -136,18 +208,17 @@ impl OverlayFS {
         Ok(())
     }
 
-    /// Get total size of changes in upper layer
+    /// Get total size of changes in upper layer (recursive)
     pub fn get_changes_size(&self) -> Result<u64> {
+        use walkdir::WalkDir;
+
         let mut total = 0u64;
 
-        for entry in fs::read_dir(&self.config.upper)
-            .map_err(|e| SandboxError::Syscall(format!("Cannot read upper layer: {}", e)))?
+        for entry in WalkDir::new(&self.config.upper)
+            .into_iter()
+            .filter_map(|e| e.ok())
         {
-            let entry = entry
-                .map_err(|e| SandboxError::Syscall(format!("Directory entry error: {}", e)))?;
-            let path = entry.path();
-
-            if path.is_file() {
+            if entry.file_type().is_file() {
                 total += entry
                     .metadata()
                     .map_err(|e| SandboxError::Syscall(e.to_string()))?
@@ -173,18 +244,16 @@ pub struct LayerInfo {
 }
 
 impl LayerInfo {
-    /// Get layer info from path
+    /// Get layer info from path (recursive)
     pub fn from_path(name: &str, path: &Path, writable: bool) -> Result<Self> {
+        use walkdir::WalkDir;
+
         let mut size = 0u64;
         let mut file_count = 0;
 
         if path.exists() {
-            for entry in fs::read_dir(path)
-                .map_err(|e| SandboxError::Syscall(format!("Cannot read layer: {}", e)))?
-            {
-                let entry = entry.map_err(|e| SandboxError::Syscall(e.to_string()))?;
-
-                if entry.path().is_file() {
+            for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+                if entry.file_type().is_file() {
                     file_count += 1;
                     size += entry
                         .metadata()
@@ -217,10 +286,10 @@ mod tests {
     #[test]
     fn test_overlay_config_mount_options() {
         let config = OverlayConfig::new("/lower", "/upper");
-        let opts = config.get_mount_options();
+        let opts = config.get_mount_options().unwrap();
 
-        assert!(opts.contains("lowerdir="));
-        assert!(opts.contains("upperdir="));
+        assert!(opts.contains("lowerdir=/lower"));
+        assert!(opts.contains("upperdir=/upper"));
         assert!(opts.contains("workdir="));
     }
 

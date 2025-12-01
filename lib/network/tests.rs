@@ -4,8 +4,10 @@ use std::net::{IpAddr, Ipv4Addr};
 #[test]
 fn network_config_supports_multiple_interfaces() {
     let mut config = NetworkConfig::isolated();
-    let extra_iface = NetworkInterface::new("eth1", Ipv4Addr::new(10, 10, 0, 2));
-    config.add_interface(extra_iface).expect("interface valid");
+    let iface1 = NetworkInterface::new("eth0", Ipv4Addr::new(10, 10, 0, 1));
+    let iface2 = NetworkInterface::new("eth1", Ipv4Addr::new(10, 10, 0, 2));
+    config.add_interface(iface1).expect("interface valid");
+    config.add_interface(iface2).expect("interface valid");
 
     assert_eq!(config.interfaces.len(), 2);
     assert!(config.validate().is_ok());

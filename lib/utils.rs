@@ -73,7 +73,8 @@ pub fn parse_memory_size(s: &str) -> Result<u64> {
         .parse()
         .map_err(|_| SandboxError::InvalidConfig(format!("Invalid memory size: {}", s)))?;
 
-    Ok(num * multiplier)
+    num.checked_mul(multiplier)
+        .ok_or_else(|| SandboxError::InvalidConfig(format!("Memory size overflow: {}", s)))
 }
 
 #[cfg(test)]

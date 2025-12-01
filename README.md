@@ -20,7 +20,7 @@ sandbox-rs is a library and CLI tool for creating lightweight, secure sandboxes 
 ### Isolation
 - **Linux Namespaces**: PID, IPC, network, mount, UTS, and user namespaces for complete process isolation
 - **Seccomp Filtering**: BPF-based syscall filtering with five predefined profiles (minimal, io-heavy, compute, network, unrestricted)
-- **Filesystem Isolation**: Overlay filesystem with copy-on-write semantics and volume mount support
+- **Filesystem Isolation**: OverlayFS support with direct mount syscalls (requires root)
 
 ### Resource Management
 - **Memory Limits**: Hard ceiling with out-of-memory enforcement
@@ -35,8 +35,8 @@ sandbox-rs is a library and CLI tool for creating lightweight, secure sandboxes 
 
 ## Requirements
 
-- Linux kernel 5.10+ (Cgroup v2 support required)
-- Root privileges for full isolation features
+- **Linux kernel 5.10+** (Cgroup v2 support required)
+- **Root privileges REQUIRED** - The sandbox enforces proper isolation through cgroups, namespaces, and filesystem operations that all require root access. Running without root will result in an error.
 - libc support for namespace and seccomp operations
 
 ## Installation

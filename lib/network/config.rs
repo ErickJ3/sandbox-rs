@@ -1,4 +1,8 @@
 //! Network configuration for sandbox isolation
+//!
+//! NOTE: NetworkConfig types are defined but NOT currently integrated into the main
+//! sandbox execution. Network isolation is handled via namespace configuration.
+//! This module provides types for future network management features.
 
 use crate::errors::{Result, SandboxError};
 use serde::{Deserialize, Serialize};
@@ -138,12 +142,12 @@ impl Default for NetworkConfig {
 }
 
 impl NetworkConfig {
-    /// Create isolated network config
+    /// Create isolated network config (no DNS)
     pub fn isolated() -> Self {
         Self {
             mode: NetworkMode::Isolated,
-            interfaces: vec![NetworkInterface::default()],
-            dns_servers: vec![IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8))],
+            interfaces: vec![],
+            dns_servers: vec![],
             port_mappings: Vec::new(),
             ip_forward: false,
             bandwidth_limit: 0,
