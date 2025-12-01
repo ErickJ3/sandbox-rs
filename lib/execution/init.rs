@@ -41,17 +41,45 @@ impl SandboxInit {
     }
 
     fn mount_procfs() {
+        use std::ffi::CString;
+
         let _ = std::fs::create_dir("/proc");
-        let _ = std::process::Command::new("mount")
-            .args(["-t", "proc", "proc", "/proc"])
-            .output();
+
+        // Use mount syscall instead of external mount command
+        let source = CString::new("proc").unwrap();
+        let target = CString::new("/proc").unwrap();
+        let fstype = CString::new("proc").unwrap();
+
+        unsafe {
+            libc::mount(
+                source.as_ptr(),
+                target.as_ptr(),
+                fstype.as_ptr(),
+                0,
+                std::ptr::null(),
+            );
+        }
     }
 
     fn mount_sysfs() {
+        use std::ffi::CString;
+
         let _ = std::fs::create_dir("/sys");
-        let _ = std::process::Command::new("mount")
-            .args(["-t", "sysfs", "sysfs", "/sys"])
-            .output();
+
+        // Use mount syscall instead of external mount command
+        let source = CString::new("sysfs").unwrap();
+        let target = CString::new("/sys").unwrap();
+        let fstype = CString::new("sysfs").unwrap();
+
+        unsafe {
+            libc::mount(
+                source.as_ptr(),
+                target.as_ptr(),
+                fstype.as_ptr(),
+                0,
+                std::ptr::null(),
+            );
+        }
     }
 
     /// Execute user program
@@ -111,28 +139,6 @@ impl SandboxInit {
     }
 }
 
-/// Write init process binary
-/// This is used for containerized execution
-pub fn generate_init_script(program: &str, args: &[&str]) -> String {
-    format!(
-        r#"#!/bin/sh
-set -e
-
-# Mount essential filesystems
-mkdir -p /proc /sys /dev /tmp
-
-# Don't mount if already mounted (in case of nested)
-mountpoint -q /proc || mount -t proc proc /proc
-mountpoint -q /sys || mount -t sysfs sysfs /sys
-
-# Execute program
-exec "{}" {}
-"#,
-        program,
-        args.join(" ")
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,34 +165,6 @@ mod tests {
         );
 
         assert_eq!(init.args.len(), 4);
-    }
-
-    #[test]
-    fn test_generate_init_script_simple() {
-        let script = generate_init_script("/bin/echo", &["hello"]);
-
-        assert!(script.contains("#!/bin/sh"));
-        assert!(script.contains("/proc"));
-        assert!(script.contains("/bin/echo"));
-        assert!(script.contains("hello"));
-    }
-
-    #[test]
-    fn test_generate_init_script_multiple_args() {
-        let script = generate_init_script("/bin/echo", &["hello", "world"]);
-
-        assert!(script.contains("hello"));
-        assert!(script.contains("world"));
-        assert!(script.contains("exec"));
-    }
-
-    #[test]
-    fn test_generate_init_script_contains_mounts() {
-        let script = generate_init_script("/usr/bin/test", &[]);
-
-        assert!(script.contains("mount -t proc"));
-        assert!(script.contains("mount -t sysfs"));
-        assert!(script.contains("mkdir -p /proc /sys /dev /tmp"));
     }
 
     #[test]
@@ -220,45 +198,6 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_init_script_with_special_args() {
-        let script = generate_init_script("/bin/sh", &["-c", "echo hello"]);
-
-        assert!(script.contains("/bin/sh"));
-        assert!(script.contains("-c"));
-        assert!(script.contains("echo hello"));
-    }
-
-    #[test]
-    fn test_generate_init_script_complex_program() {
-        let script = generate_init_script("/usr/bin/python3", &["-u", "script.py"]);
-
-        assert!(script.contains("/usr/bin/python3"));
-        assert!(script.contains("-u"));
-        assert!(script.contains("script.py"));
-    }
-
-    #[test]
-    fn test_generate_init_script_many_args() {
-        let args = vec!["arg1", "arg2", "arg3", "arg4", "arg5"];
-        let script = generate_init_script("/bin/cat", &args);
-
-        for arg in &args {
-            assert!(script.contains(arg));
-        }
-        assert!(script.contains("/bin/cat"));
-    }
-
-    #[test]
-    fn test_generate_init_script_format() {
-        let script = generate_init_script("/bin/ls", &["-la"]);
-
-        assert!(script.starts_with("#!/bin/sh"));
-        assert!(script.contains("set -e"));
-        assert!(script.contains("mkdir -p"));
-        assert!(script.contains("exec"));
-    }
-
-    #[test]
     fn test_init_program_stored_correctly() {
         let program = "/usr/bin/python3".to_string();
         let init = SandboxInit::new(program.clone(), vec![]);
@@ -282,23 +221,5 @@ mod tests {
 
         assert_eq!(init1.program, init2.program);
         assert_eq!(init1.args, init2.args);
-    }
-
-    #[test]
-    fn test_generate_init_script_empty_program() {
-        let script = generate_init_script("", &[]);
-
-        assert!(script.starts_with("#!/bin/sh"));
-        assert!(script.contains("exec \"\""));
-    }
-
-    #[test]
-    fn test_generate_init_script_preserves_shell_syntax() {
-        let script = generate_init_script("/bin/echo", &["hello"]);
-
-        assert!(script.contains("#!/bin/sh"));
-        assert!(script.contains("set -e"));
-        assert!(script.contains("mkdir -p"));
-        assert!(script.contains("exec"));
     }
 }

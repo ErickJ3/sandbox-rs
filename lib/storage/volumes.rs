@@ -206,8 +206,10 @@ impl VolumeManager {
         Ok(volumes)
     }
 
-    /// Get volume size
+    /// Get volume size (recursive)
     pub fn get_volume_size(&self, name: &str) -> Result<u64> {
+        use walkdir::WalkDir;
+
         let vol_path = self.volume_root.join(name);
 
         if !vol_path.exists() {
@@ -219,11 +221,8 @@ impl VolumeManager {
 
         let mut total = 0u64;
 
-        for entry in fs::read_dir(&vol_path).map_err(|e| SandboxError::Syscall(e.to_string()))? {
-            let entry = entry.map_err(|e| SandboxError::Syscall(e.to_string()))?;
-            let path = entry.path();
-
-            if path.is_file() {
+        for entry in WalkDir::new(&vol_path).into_iter().filter_map(|e| e.ok()) {
+            if entry.file_type().is_file() {
                 total += entry
                     .metadata()
                     .map_err(|e| SandboxError::Syscall(e.to_string()))?

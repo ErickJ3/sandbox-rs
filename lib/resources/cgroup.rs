@@ -124,17 +124,7 @@ impl Cgroup {
     /// Add process to cgroup
     pub fn add_process(&self, pid: Pid) -> Result<()> {
         let procs_file = self.path.join("cgroup.procs");
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .open(&procs_file)
-            .map_err(|e| {
-                SandboxError::Cgroup(format!("Failed to open {}: {}", procs_file.display(), e))
-            })?;
-
-        write!(file, "{}", pid.as_raw())
-            .map_err(|e| SandboxError::Cgroup(format!("Failed to add process to cgroup: {}", e)))?;
-
-        Ok(())
+        self.write_file(&procs_file, &pid.as_raw().to_string())
     }
 
     /// Set memory limit
@@ -212,16 +202,19 @@ impl Cgroup {
 
     /// Delete cgroup
     pub fn delete(&self) -> Result<()> {
-        if self.exists() {
-            fs::remove_dir(&self.path).map_err(|e| {
-                SandboxError::Cgroup(format!(
-                    "Failed to delete cgroup {}: {}",
-                    self.path.display(),
-                    e
-                ))
-            })?;
+        // Just try to remove and handle the error
+        match fs::remove_dir(&self.path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // Cgroup already doesn't exist, that's fine
+                Ok(())
+            }
+            Err(e) => Err(SandboxError::Cgroup(format!(
+                "Failed to delete cgroup {}: {}",
+                self.path.display(),
+                e
+            ))),
         }
-        Ok(())
     }
 
     fn write_file(&self, path: &Path, content: &str) -> Result<()> {

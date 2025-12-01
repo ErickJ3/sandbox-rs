@@ -2,7 +2,6 @@
 
 use super::seccomp::SeccompFilter;
 use crate::errors::{Result, SandboxError};
-use log::warn;
 use seccompiler::{BpfProgram, SeccompAction, SeccompFilter as SeccompilerFilter, apply_filter};
 use std::collections::BTreeMap;
 use std::convert::TryInto;
@@ -38,14 +37,10 @@ impl SeccompBpf {
                         rules.entry(num).or_default();
                     }
                     None => {
-                        if filter.allows_unknown_syscalls() {
-                            warn!("Unknown syscall '{}' in block list (ignored)", syscall_name);
-                        } else {
-                            return Err(SandboxError::Seccomp(format!(
-                                "Unknown syscall to block: '{}'. This syscall is not supported on this architecture.",
-                                syscall_name
-                            )));
-                        }
+                        return Err(SandboxError::Seccomp(format!(
+                            "Unknown syscall to block: '{}'. This syscall is not supported on this architecture.",
+                            syscall_name
+                        )));
                     }
                 }
             }
@@ -60,14 +55,10 @@ impl SeccompBpf {
                         rules.entry(num).or_default();
                     }
                     None => {
-                        if filter.allows_unknown_syscalls() {
-                            warn!("Unknown syscall '{}' in allow list (ignored)", syscall_name);
-                        } else {
-                            return Err(SandboxError::Seccomp(format!(
-                                "Unknown syscall to allow: '{}'. This syscall is not supported on this architecture.",
-                                syscall_name
-                            )));
-                        }
+                        return Err(SandboxError::Seccomp(format!(
+                            "Unknown syscall to allow: '{}'. This syscall is not supported on this architecture.",
+                            syscall_name
+                        )));
                     }
                 }
             }
@@ -617,15 +608,6 @@ mod tests {
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
         assert!(err_msg.contains("Unknown syscall"));
-    }
-
-    #[test]
-    fn test_load_with_unknown_syscalls_allowed() {
-        let mut filter = SeccompFilter::minimal();
-        filter.allow_syscall("syscall_inexistente");
-        filter.set_allow_unknown_syscalls(true);
-        let result = SeccompBpf::compile(&filter);
-        assert!(result.is_ok());
     }
 
     #[test]

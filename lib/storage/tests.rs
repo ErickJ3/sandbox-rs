@@ -22,6 +22,7 @@ fn overlay_config_validation_checks_lower_layer() {
 }
 
 #[test]
+#[ignore] // Requires root privileges for mount syscall
 fn overlay_fs_setup_creates_directories() {
     let (_temp, config) = overlay_environment();
     assert!(config.validate().is_ok());
@@ -37,6 +38,7 @@ fn overlay_fs_setup_creates_directories() {
 }
 
 #[test]
+#[ignore] // Requires root privileges for mount syscall
 fn overlay_fs_reports_changes_size() {
     let (_temp, config) = overlay_environment();
     config.setup_directories().unwrap();
@@ -77,6 +79,7 @@ fn overlay_config_setup_directories_create_paths() {
 }
 
 #[test]
+#[ignore] // Requires root privileges for mount syscall
 fn overlay_fs_cleanup_resets_state_and_removes_workdir() {
     let (_temp, config) = overlay_environment();
     let work_dir = config.work.clone();

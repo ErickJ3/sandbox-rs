@@ -2,10 +2,8 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::time::{Duration, Instant};
 
-use log::warn;
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 
@@ -258,28 +256,30 @@ impl Sandbox {
             return Err(SandboxError::AlreadyRunning);
         }
 
+        if !utils::is_root() {
+            return Err(SandboxError::PermissionDenied(
+                "Sandbox requires root privileges for proper isolation (cgroups, namespaces). \
+                 Running without root would bypass all resource limits and namespace isolation. \
+                 Use sudo or run as root."
+                    .to_string(),
+            ));
+        }
+
         self.start_time = Some(Instant::now());
 
-        if utils::is_root() {
-            let cgroup_name = format!("sandbox-{}", self.config.id);
-            let cgroup = Cgroup::new(&cgroup_name, Pid::from_raw(std::process::id() as i32))?;
+        let cgroup_name = format!("sandbox-{}", self.config.id);
+        let cgroup = Cgroup::new(&cgroup_name, Pid::from_raw(std::process::id() as i32))?;
 
-            let cgroup_config = CgroupConfig {
-                memory_limit: self.config.memory_limit,
-                cpu_quota: self.config.cpu_quota,
-                cpu_period: self.config.cpu_period,
-                max_pids: self.config.max_pids,
-                cpu_weight: None,
-            };
-            cgroup.apply_config(&cgroup_config)?;
+        let cgroup_config = CgroupConfig {
+            memory_limit: self.config.memory_limit,
+            cpu_quota: self.config.cpu_quota,
+            cpu_period: self.config.cpu_period,
+            max_pids: self.config.max_pids,
+            cpu_weight: None,
+        };
+        cgroup.apply_config(&cgroup_config)?;
 
-            self.cgroup = Some(cgroup);
-        } else {
-            warn!(
-                "Skipping cgroup configuration for sandbox {} (not running as root)",
-                self.config.id
-            );
-        }
+        self.cgroup = Some(cgroup);
 
         let process_config = ProcessConfig {
             program: program.to_string(),
@@ -295,46 +295,22 @@ impl Sandbox {
             inherit_env: true,
         };
 
-        // Execute with namespace isolation
-        if utils::is_root() {
-            // Real isolation with namespaces
-            let process_result =
-                ProcessExecutor::execute(process_config, self.config.namespace_config.clone())?;
+        let process_result =
+            ProcessExecutor::execute(process_config, self.config.namespace_config.clone())?;
 
-            self.pid = Some(process_result.pid);
+        self.pid = Some(process_result.pid);
 
-            let wall_time_ms = self.start_time.unwrap().elapsed().as_millis() as u64;
+        let wall_time_ms = self.start_time.unwrap().elapsed().as_millis() as u64;
+        let (memory_peak, _) = self.get_resource_usage()?;
 
-            // Get peak memory from cgroup if available
-            let (memory_peak, _) = self.get_resource_usage().unwrap_or((0, 0));
-
-            Ok(SandboxResult {
-                exit_code: process_result.exit_status,
-                signal: process_result.signal,
-                timed_out: false,
-                memory_peak,
-                cpu_time_us: process_result.exec_time_ms * 1000,
-                wall_time_ms,
-            })
-        } else {
-            warn!("Running without full isolation (not root). Use sudo for production sandboxes.");
-            let output = Command::new(program)
-                .args(args)
-                .output()
-                .map_err(SandboxError::Io)?;
-
-            let exit_code = output.status.code().unwrap_or(-1);
-            let wall_time_ms = self.start_time.unwrap().elapsed().as_millis() as u64;
-
-            Ok(SandboxResult {
-                exit_code,
-                signal: None,
-                timed_out: false,
-                memory_peak: 0,
-                cpu_time_us: 0,
-                wall_time_ms,
-            })
-        }
+        Ok(SandboxResult {
+            exit_code: process_result.exit_status,
+            signal: process_result.signal,
+            timed_out: false,
+            memory_peak,
+            cpu_time_us: process_result.exec_time_ms * 1000,
+            wall_time_ms,
+        })
     }
 
     /// Run program with streaming output
@@ -419,7 +395,9 @@ impl Sandbox {
             let cpu = cgroup.get_cpu_usage()?;
             Ok((memory, cpu))
         } else {
-            Ok((0, 0))
+            Err(SandboxError::InvalidConfig(
+                "Cannot get resource usage: cgroup not initialized".to_string(),
+            ))
         }
     }
 }
@@ -642,14 +620,14 @@ mod tests {
     }
 
     #[test]
-    fn sandbox_run_executes_command_without_root() {
+    fn sandbox_run_requires_root() {
         let _guard = serial_guard();
         let (_tmp, config) = config_with_temp_root("run-test");
         let mut sandbox = Sandbox::new(config).unwrap();
         let args: [&str; 1] = ["hello"];
-        let result = sandbox.run("/bin/echo", &args).unwrap();
-        assert_eq!(result.exit_code, 0);
-        assert!(!sandbox.is_running());
+        let result = sandbox.run("/bin/echo", &args);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("root"));
     }
 
     #[test]
@@ -749,12 +727,11 @@ mod tests {
     }
 
     #[test]
-    fn sandbox_get_resource_usage_without_cgroup() {
+    fn sandbox_get_resource_usage_without_cgroup_fails() {
         let (_tmp, config) = config_with_temp_root("no-cgroup");
         let sandbox = Sandbox::new(config).unwrap();
-        let (mem, cpu) = sandbox.get_resource_usage().unwrap();
-        assert_eq!(mem, 0);
-        assert_eq!(cpu, 0);
+        let result = sandbox.get_resource_usage();
+        assert!(result.is_err());
     }
 
     #[test]
