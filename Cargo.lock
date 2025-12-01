@@ -370,7 +370,7 @@ dependencies = [
 
 [[package]]
 name = "sandbox-ctl"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "clap",
  "env_logger",
@@ -380,7 +380,7 @@ dependencies = [
 
 [[package]]
 name = "sandbox-rs"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "libc",
