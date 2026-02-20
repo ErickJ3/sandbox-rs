@@ -101,9 +101,9 @@ fn detect_seccomp() -> bool {
 }
 
 fn detect_landlock() -> bool {
-    // Try landlock_create_ruleset with empty attrs to check availability
-    // This syscall returns -1/ENOSYS if landlock is not available
-    // and -1/EINVAL or -1/EFAULT with valid errno if it IS available
+    // Use LANDLOCK_CREATE_RULESET_VERSION to query ABI version.
+    // With flags=1 and NULL attrs, this returns the highest supported
+    // ABI version (an integer >= 1), NOT a file descriptor.
     let ret = unsafe {
         libc::syscall(
             libc::SYS_landlock_create_ruleset,
@@ -114,10 +114,7 @@ fn detect_landlock() -> bool {
     };
 
     if ret >= 0 {
-        // Got a valid fd - close it and landlock is available
-        unsafe {
-            libc::close(ret as i32);
-        }
+        // ret is the ABI version number, not a fd — do NOT close it
         return true;
     }
 

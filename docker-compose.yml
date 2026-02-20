@@ -6,31 +6,15 @@ services:
     image: sandbox-rs:latest
     container_name: sandbox-ctl
 
-    # Required for namespace and seccomp operations
-    privileged: true
-
-    # Use host cgroup namespace to allow cgroup management
-    cgroup: host
-
-    # Alternative to privileged mode (more restrictive, but may not work for all features)
-    # cap_add:
-    #   - SYS_ADMIN
-    #   - SYS_PTRACE
-    #   - SYS_CHROOT
-    #   - NET_ADMIN
-    #   - SETUID
-    #   - SETGID
-    # security_opt:
-    #   - seccomp=unconfined
-
-    # Mount volumes for persistent data and cgroup access
-    volumes:
-      - ./workdir:/sandbox/workdir
-      - ./volumes:/sandbox/volumes
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    # No privileged mode needed — sandbox-rs works unprivileged.
+    # For privileged mode (cgroups, chroot), uncomment:
+    # privileged: true
+    # cgroup: host
+    # volumes:
+    #   - /sys/fs/cgroup:/sys/fs/cgroup:rw
 
     # Override command to run a specific sandbox
-    # command: run --id test --memory 256M --cpu 50 --timeout 30 /bin/echo "Hello from Docker!"
+    # command: run --id test --memory 256M --timeout 30 /bin/echo "Hello from Docker!"
 
     stdin_open: true
     tty: true
