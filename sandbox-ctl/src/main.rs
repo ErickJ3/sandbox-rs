@@ -9,7 +9,8 @@ mod runner;
 use clap::Parser;
 use cli::{Cli, Commands};
 use commands::{check_requirements, list_seccomp_profiles, list_security_profiles};
-use runner::run_sandbox;
+use console::style;
+use runner::{run_sandbox, RunConfig};
 
 fn main() {
     let cli = Cli::parse();
@@ -34,18 +35,19 @@ fn main() {
     if let Some(command) = cli.command {
         match command {
             Commands::Run { program, args } => {
-                if let Err(e) = run_sandbox(
-                    cli.id,
-                    &program,
-                    &args,
-                    cli.profile,
-                    cli.memory,
-                    cli.cpu,
-                    cli.timeout,
-                    cli.seccomp,
-                    cli.root,
-                ) {
-                    eprintln!("Error: {}", e);
+                let config = RunConfig {
+                    id: cli.id,
+                    program,
+                    args,
+                    profile: cli.profile,
+                    memory: cli.memory,
+                    cpu: cli.cpu,
+                    timeout: cli.timeout,
+                    seccomp: cli.seccomp,
+                    root: cli.root,
+                };
+                if let Err(e) = run_sandbox(config) {
+                    eprintln!("{} {}", style("error:").red().bold(), e);
                     std::process::exit(1);
                 }
             }
@@ -57,23 +59,24 @@ fn main() {
     }
 
     let Some(program) = cli.program else {
-        eprintln!("Error: No program specified");
-        eprintln!("Try 'sandbox-ctl --help' for more information");
+        eprintln!("{} No program specified", style("error:").red().bold());
+        eprintln!("Try {} for more information", style("sandbox-ctl --help").cyan());
         std::process::exit(1);
     };
 
-    if let Err(e) = run_sandbox(
-        cli.id,
-        &program,
-        &cli.args,
-        cli.profile,
-        cli.memory,
-        cli.cpu,
-        cli.timeout,
-        cli.seccomp,
-        cli.root,
-    ) {
-        eprintln!("Error: {}", e);
+    let config = RunConfig {
+        id: cli.id,
+        program,
+        args: cli.args,
+        profile: cli.profile,
+        memory: cli.memory,
+        cpu: cli.cpu,
+        timeout: cli.timeout,
+        seccomp: cli.seccomp,
+        root: cli.root,
+    };
+    if let Err(e) = run_sandbox(config) {
+        eprintln!("{} {}", style("error:").red().bold(), e);
         std::process::exit(1);
     }
 }
