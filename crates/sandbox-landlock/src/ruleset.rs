@@ -89,7 +89,9 @@ impl LandlockConfig {
             )
         };
         if ret >= 0 {
-            unsafe { libc::close(ret as i32); }
+            unsafe {
+                libc::close(ret as i32);
+            }
             return true;
         }
         let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
@@ -133,7 +135,9 @@ impl LandlockConfig {
         let result = self.add_all_rules(ruleset_fd);
 
         if result.is_err() {
-            unsafe { libc::close(ruleset_fd); }
+            unsafe {
+                libc::close(ruleset_fd);
+            }
             return result;
         }
 
@@ -147,11 +151,7 @@ impl LandlockConfig {
                 )));
             }
 
-            let ret = libc::syscall(
-                libc::SYS_landlock_restrict_self,
-                ruleset_fd,
-                0u32,
-            );
+            let ret = libc::syscall(libc::SYS_landlock_restrict_self, ruleset_fd, 0u32);
 
             libc::close(ruleset_fd);
 
@@ -185,7 +185,8 @@ impl LandlockConfig {
         let file = std::fs::File::open(path).map_err(|e| {
             SandboxError::Landlock(format!(
                 "Failed to open path for landlock rule {}: {}",
-                path.display(), e
+                path.display(),
+                e
             ))
         })?;
 
@@ -206,7 +207,9 @@ impl LandlockConfig {
             )
         };
 
-        unsafe { libc::close(fd); }
+        unsafe {
+            libc::close(fd);
+        }
 
         if ret < 0 {
             return Err(SandboxError::Landlock(format!(

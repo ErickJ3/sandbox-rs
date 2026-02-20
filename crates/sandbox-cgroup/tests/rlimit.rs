@@ -104,11 +104,7 @@ fn rlimit_fsize_enforced() {
             // The child might be killed by SIGXFSZ when exceeding RLIMIT_FSIZE
             if libc::WIFSIGNALED(status) {
                 let sig = libc::WTERMSIG(status);
-                assert_eq!(
-                    sig,
-                    libc::SIGXFSZ,
-                    "If killed by signal, should be SIGXFSZ"
-                );
+                assert_eq!(sig, libc::SIGXFSZ, "If killed by signal, should be SIGXFSZ");
                 // Being killed by SIGXFSZ means the limit was enforced
             } else {
                 assert!(libc::WIFEXITED(status), "Child should exit normally");

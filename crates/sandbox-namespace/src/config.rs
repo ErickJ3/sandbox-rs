@@ -1,8 +1,8 @@
 //! Namespace management for sandbox isolation
 
 use nix::sched::CloneFlags;
-use sandbox_core::{Result, SandboxError};
 use nix::unistd::Pid;
+use sandbox_core::{Result, SandboxError};
 
 /// Namespace types that can be isolated
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,33 +43,73 @@ impl Default for NamespaceConfig {
 impl NamespaceConfig {
     /// All namespaces enabled
     pub fn all() -> Self {
-        Self { pid: true, ipc: true, net: true, mount: true, uts: true, user: true }
+        Self {
+            pid: true,
+            ipc: true,
+            net: true,
+            mount: true,
+            uts: true,
+            user: true,
+        }
     }
 
     /// Minimal configuration (PID, IPC, NET, MOUNT)
     pub fn minimal() -> Self {
-        Self { pid: true, ipc: true, net: true, mount: true, uts: false, user: false }
+        Self {
+            pid: true,
+            ipc: true,
+            net: true,
+            mount: true,
+            uts: false,
+            user: false,
+        }
     }
 
     /// Unprivileged mode: user namespace enabled to allow other namespaces without root
     pub fn unprivileged() -> Self {
-        Self { pid: true, ipc: true, net: true, mount: true, uts: true, user: true }
+        Self {
+            pid: true,
+            ipc: true,
+            net: true,
+            mount: true,
+            uts: true,
+            user: true,
+        }
     }
 
     /// Privileged mode: no user namespace needed (running as root)
     pub fn privileged() -> Self {
-        Self { pid: true, ipc: true, net: true, mount: true, uts: true, user: false }
+        Self {
+            pid: true,
+            ipc: true,
+            net: true,
+            mount: true,
+            uts: true,
+            user: false,
+        }
     }
 
     /// Convert to clone flags
     pub fn to_clone_flags(&self) -> CloneFlags {
         let mut flags = CloneFlags::empty();
-        if self.pid { flags |= CloneFlags::CLONE_NEWPID; }
-        if self.ipc { flags |= CloneFlags::CLONE_NEWIPC; }
-        if self.net { flags |= CloneFlags::CLONE_NEWNET; }
-        if self.mount { flags |= CloneFlags::CLONE_NEWNS; }
-        if self.uts { flags |= CloneFlags::CLONE_NEWUTS; }
-        if self.user { flags |= CloneFlags::CLONE_NEWUSER; }
+        if self.pid {
+            flags |= CloneFlags::CLONE_NEWPID;
+        }
+        if self.ipc {
+            flags |= CloneFlags::CLONE_NEWIPC;
+        }
+        if self.net {
+            flags |= CloneFlags::CLONE_NEWNET;
+        }
+        if self.mount {
+            flags |= CloneFlags::CLONE_NEWNS;
+        }
+        if self.uts {
+            flags |= CloneFlags::CLONE_NEWUTS;
+        }
+        if self.user {
+            flags |= CloneFlags::CLONE_NEWUSER;
+        }
         flags
     }
 
@@ -78,8 +118,12 @@ impl NamespaceConfig {
     }
 
     pub fn enabled_count(&self) -> usize {
-        [self.pid, self.ipc, self.net, self.mount, self.uts, self.user]
-            .iter().filter(|&&x| x).count()
+        [
+            self.pid, self.ipc, self.net, self.mount, self.uts, self.user,
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count()
     }
 }
 

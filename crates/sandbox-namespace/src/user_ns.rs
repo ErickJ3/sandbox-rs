@@ -3,8 +3,8 @@
 //! When using user namespaces, the child process needs UID/GID mappings
 //! written to /proc/{pid}/uid_map and /proc/{pid}/gid_map.
 
-use sandbox_core::{Result, SandboxError};
 use nix::unistd::Pid;
+use sandbox_core::{Result, SandboxError};
 use std::fs;
 
 /// Setup user namespace UID/GID mapping for a child process.
@@ -39,11 +39,8 @@ mod tests {
     #[test]
     fn test_setup_user_namespace_invalid_pid() {
         // Using an invalid PID should fail gracefully
-        let result = super::setup_user_namespace(
-            nix::unistd::Pid::from_raw(999_999_999),
-            1000,
-            1000,
-        );
+        let result =
+            super::setup_user_namespace(nix::unistd::Pid::from_raw(999_999_999), 1000, 1000);
         assert!(result.is_err());
     }
 }

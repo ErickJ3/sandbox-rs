@@ -17,33 +17,66 @@ impl OverlayConfig {
     pub fn new(lower: impl AsRef<Path>, upper: impl AsRef<Path>) -> Self {
         let lower_path = lower.as_ref().to_path_buf();
         let upper_path = upper.as_ref().to_path_buf();
-        let work_path = upper_path.parent().unwrap_or_else(|| Path::new("/tmp")).join("overlayfs-work");
-        let merged_path = upper_path.parent().unwrap_or_else(|| Path::new("/tmp")).join("overlayfs-merged");
-        Self { lower: lower_path, upper: upper_path, work: work_path, merged: merged_path }
+        let work_path = upper_path
+            .parent()
+            .unwrap_or_else(|| Path::new("/tmp"))
+            .join("overlayfs-work");
+        let merged_path = upper_path
+            .parent()
+            .unwrap_or_else(|| Path::new("/tmp"))
+            .join("overlayfs-merged");
+        Self {
+            lower: lower_path,
+            upper: upper_path,
+            work: work_path,
+            merged: merged_path,
+        }
     }
 
     pub fn validate(&self) -> Result<()> {
         if !self.lower.exists() {
-            return Err(SandboxError::Syscall(format!("Lower layer does not exist: {}", self.lower.display())));
+            return Err(SandboxError::Syscall(format!(
+                "Lower layer does not exist: {}",
+                self.lower.display()
+            )));
         }
         Ok(())
     }
 
     pub fn setup_directories(&self) -> Result<()> {
-        fs::create_dir_all(&self.upper).map_err(|e| SandboxError::Syscall(format!("Failed to create upper layer: {}", e)))?;
+        fs::create_dir_all(&self.upper)
+            .map_err(|e| SandboxError::Syscall(format!("Failed to create upper layer: {}", e)))?;
         if self.work.exists() {
-            fs::remove_dir_all(&self.work).map_err(|e| SandboxError::Syscall(format!("Failed to clean work directory: {}", e)))?;
+            fs::remove_dir_all(&self.work).map_err(|e| {
+                SandboxError::Syscall(format!("Failed to clean work directory: {}", e))
+            })?;
         }
-        fs::create_dir_all(&self.work).map_err(|e| SandboxError::Syscall(format!("Failed to create work directory: {}", e)))?;
-        fs::create_dir_all(&self.merged).map_err(|e| SandboxError::Syscall(format!("Failed to create merged directory: {}", e)))?;
+        fs::create_dir_all(&self.work).map_err(|e| {
+            SandboxError::Syscall(format!("Failed to create work directory: {}", e))
+        })?;
+        fs::create_dir_all(&self.merged).map_err(|e| {
+            SandboxError::Syscall(format!("Failed to create merged directory: {}", e))
+        })?;
         Ok(())
     }
 
     pub fn get_mount_options(&self) -> Result<String> {
-        let lower_str = self.lower.to_str().ok_or_else(|| SandboxError::Syscall("Lower path is not valid UTF-8".to_string()))?;
-        let upper_str = self.upper.to_str().ok_or_else(|| SandboxError::Syscall("Upper path is not valid UTF-8".to_string()))?;
-        let work_str = self.work.to_str().ok_or_else(|| SandboxError::Syscall("Work path is not valid UTF-8".to_string()))?;
-        Ok(format!("lowerdir={},upperdir={},workdir={}", lower_str, upper_str, work_str))
+        let lower_str = self
+            .lower
+            .to_str()
+            .ok_or_else(|| SandboxError::Syscall("Lower path is not valid UTF-8".to_string()))?;
+        let upper_str = self
+            .upper
+            .to_str()
+            .ok_or_else(|| SandboxError::Syscall("Upper path is not valid UTF-8".to_string()))?;
+        let work_str = self
+            .work
+            .to_str()
+            .ok_or_else(|| SandboxError::Syscall("Work path is not valid UTF-8".to_string()))?;
+        Ok(format!(
+            "lowerdir={},upperdir={},workdir={}",
+            lower_str, upper_str, work_str
+        ))
     }
 }
 
@@ -55,45 +88,78 @@ pub struct OverlayFS {
 
 impl OverlayFS {
     pub fn new(config: OverlayConfig) -> Self {
-        Self { config, mounted: false }
+        Self {
+            config,
+            mounted: false,
+        }
     }
 
     pub fn setup(&mut self) -> Result<()> {
         self.config.validate()?;
         self.config.setup_directories()?;
         use std::ffi::CString;
-        let fstype = CString::new("overlay").map_err(|_| SandboxError::Syscall("Invalid filesystem type".to_string()))?;
-        let source = CString::new("overlay").map_err(|_| SandboxError::Syscall("Invalid source".to_string()))?;
-        let target_str = self.config.merged.to_str().ok_or_else(|| SandboxError::Syscall("Merged path is not valid UTF-8".to_string()))?;
-        let target = CString::new(target_str).map_err(|_| SandboxError::Syscall("Invalid target path".to_string()))?;
+        let fstype = CString::new("overlay")
+            .map_err(|_| SandboxError::Syscall("Invalid filesystem type".to_string()))?;
+        let source = CString::new("overlay")
+            .map_err(|_| SandboxError::Syscall("Invalid source".to_string()))?;
+        let target_str =
+            self.config.merged.to_str().ok_or_else(|| {
+                SandboxError::Syscall("Merged path is not valid UTF-8".to_string())
+            })?;
+        let target = CString::new(target_str)
+            .map_err(|_| SandboxError::Syscall("Invalid target path".to_string()))?;
         let options_str = self.config.get_mount_options()?;
-        let options = CString::new(options_str.as_str()).map_err(|_| SandboxError::Syscall("Invalid mount options".to_string()))?;
+        let options = CString::new(options_str.as_str())
+            .map_err(|_| SandboxError::Syscall("Invalid mount options".to_string()))?;
         let ret = unsafe {
-            libc::mount(source.as_ptr(), target.as_ptr(), fstype.as_ptr(), 0, options.as_ptr() as *const libc::c_void)
+            libc::mount(
+                source.as_ptr(),
+                target.as_ptr(),
+                fstype.as_ptr(),
+                0,
+                options.as_ptr() as *const libc::c_void,
+            )
         };
         if ret != 0 {
-            return Err(SandboxError::Syscall(format!("Failed to mount overlay filesystem: {}", std::io::Error::last_os_error())));
+            return Err(SandboxError::Syscall(format!(
+                "Failed to mount overlay filesystem: {}",
+                std::io::Error::last_os_error()
+            )));
         }
         self.mounted = true;
         Ok(())
     }
 
-    pub fn is_mounted(&self) -> bool { self.mounted }
-    pub fn merged_path(&self) -> &Path { &self.config.merged }
-    pub fn upper_path(&self) -> &Path { &self.config.upper }
-    pub fn lower_path(&self) -> &Path { &self.config.lower }
+    pub fn is_mounted(&self) -> bool {
+        self.mounted
+    }
+    pub fn merged_path(&self) -> &Path {
+        &self.config.merged
+    }
+    pub fn upper_path(&self) -> &Path {
+        &self.config.upper
+    }
+    pub fn lower_path(&self) -> &Path {
+        &self.config.lower
+    }
 
     pub fn cleanup(&mut self) -> Result<()> {
         if self.mounted {
             use std::ffi::CString;
             use std::os::unix::ffi::OsStrExt;
-            let target = CString::new(self.config.merged.as_os_str().as_bytes())
-                .map_err(|_| SandboxError::Syscall("Invalid target path for unmount".to_string()))?;
+            let target = CString::new(self.config.merged.as_os_str().as_bytes()).map_err(|_| {
+                SandboxError::Syscall("Invalid target path for unmount".to_string())
+            })?;
             let ret = unsafe { libc::umount2(target.as_ptr(), libc::MNT_DETACH) };
             if ret != 0 {
                 let err = std::io::Error::last_os_error();
-                if err.raw_os_error() != Some(libc::EINVAL) && err.raw_os_error() != Some(libc::ENOENT) {
-                    return Err(SandboxError::Syscall(format!("Failed to unmount overlay filesystem: {}", err)));
+                if err.raw_os_error() != Some(libc::EINVAL)
+                    && err.raw_os_error() != Some(libc::ENOENT)
+                {
+                    return Err(SandboxError::Syscall(format!(
+                        "Failed to unmount overlay filesystem: {}",
+                        err
+                    )));
                 }
             }
             self.mounted = false;
@@ -105,9 +171,15 @@ impl OverlayFS {
     pub fn get_changes_size(&self) -> Result<u64> {
         use walkdir::WalkDir;
         let mut total = 0u64;
-        for entry in WalkDir::new(&self.config.upper).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(&self.config.upper)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             if entry.file_type().is_file() {
-                total += entry.metadata().map_err(|e| SandboxError::Syscall(e.to_string()))?.len();
+                total += entry
+                    .metadata()
+                    .map_err(|e| SandboxError::Syscall(e.to_string()))?
+                    .len();
             }
         }
         Ok(total)
@@ -132,11 +204,19 @@ impl LayerInfo {
             for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
                 if entry.file_type().is_file() {
                     file_count += 1;
-                    size += entry.metadata().map_err(|e| SandboxError::Syscall(e.to_string()))?.len();
+                    size += entry
+                        .metadata()
+                        .map_err(|e| SandboxError::Syscall(e.to_string()))?
+                        .len();
                 }
             }
         }
-        Ok(Self { name: name.to_string(), size, file_count, writable })
+        Ok(Self {
+            name: name.to_string(),
+            size,
+            file_count,
+            writable,
+        })
     }
 }
 

@@ -105,18 +105,13 @@ pub fn check_requirements() {
     } else {
         println!(
             "  {}",
-            style(
-                "Using unprivileged sandbox (user namespaces + seccomp + landlock + rlimits)"
-            )
-            .yellow()
+            style("Using unprivileged sandbox (user namespaces + seccomp + landlock + rlimits)")
+                .yellow()
         );
     }
 
     // Show what's active vs missing
-    println!(
-        "\n{}",
-        style("Security layers:").cyan().bold()
-    );
+    println!("\n{}", style("Security layers:").cyan().bold());
 
     if caps.has_seccomp {
         println!(
@@ -171,16 +166,7 @@ pub fn check_requirements() {
         );
     }
 
-    println!(
-        "\n{}",
-        style("System info:").cyan().bold()
-    );
-    println!(
-        "  UID: {}",
-        style(sandbox_rs::utils::get_uid()).bold()
-    );
-    println!(
-        "  GID: {}",
-        style(sandbox_rs::utils::get_gid()).bold()
-    );
+    println!("\n{}", style("System info:").cyan().bold());
+    println!("  UID: {}", style(sandbox_rs::utils::get_uid()).bold());
+    println!("  GID: {}", style(sandbox_rs::utils::get_gid()).bold());
 }

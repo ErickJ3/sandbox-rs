@@ -104,10 +104,7 @@ mod tests {
             has_cgroup_v2: true,
             has_cgroup_delegation: true,
         };
-        assert_eq!(
-            PrivilegeMode::Auto.resolve(&caps),
-            ResolvedMode::Privileged
-        );
+        assert_eq!(PrivilegeMode::Auto.resolve(&caps), ResolvedMode::Privileged);
     }
 
     #[test]

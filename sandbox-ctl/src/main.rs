@@ -10,7 +10,7 @@ use clap::Parser;
 use cli::{Cli, Commands};
 use commands::{check_requirements, list_seccomp_profiles, list_security_profiles};
 use console::style;
-use runner::{run_sandbox, RunConfig};
+use runner::{RunConfig, run_sandbox};
 
 fn main() {
     let cli = Cli::parse();
@@ -60,7 +60,10 @@ fn main() {
 
     let Some(program) = cli.program else {
         eprintln!("{} No program specified", style("error:").red().bold());
-        eprintln!("Try {} for more information", style("sandbox-ctl --help").cyan());
+        eprintln!(
+            "Try {} for more information",
+            style("sandbox-ctl --help").cyan()
+        );
         std::process::exit(1);
     };
 

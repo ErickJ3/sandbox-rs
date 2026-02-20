@@ -1,7 +1,7 @@
 //! Cgroup v2 management for resource limits
 
-use sandbox_core::{Result, SandboxError};
 use nix::unistd::Pid;
+use sandbox_core::{Result, SandboxError};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -20,19 +20,34 @@ pub struct CgroupConfig {
 
 impl CgroupConfig {
     pub fn with_memory(limit: u64) -> Self {
-        Self { memory_limit: Some(limit), ..Default::default() }
+        Self {
+            memory_limit: Some(limit),
+            ..Default::default()
+        }
     }
 
     pub fn with_cpu_quota(quota: u64, period: u64) -> Self {
-        Self { cpu_quota: Some(quota), cpu_period: Some(period), ..Default::default() }
+        Self {
+            cpu_quota: Some(quota),
+            cpu_period: Some(period),
+            ..Default::default()
+        }
     }
 
     pub fn validate(&self) -> Result<()> {
-        if let Some(limit) = self.memory_limit && limit == 0 {
-            return Err(SandboxError::InvalidConfig("Memory limit must be greater than 0".to_string()));
+        if let Some(limit) = self.memory_limit
+            && limit == 0
+        {
+            return Err(SandboxError::InvalidConfig(
+                "Memory limit must be greater than 0".to_string(),
+            ));
         }
-        if let Some(weight) = self.cpu_weight && (!(100..=10000).contains(&weight)) {
-            return Err(SandboxError::InvalidConfig("CPU weight must be between 100-10000".to_string()));
+        if let Some(weight) = self.cpu_weight
+            && (!(100..=10000).contains(&weight))
+        {
+            return Err(SandboxError::InvalidConfig(
+                "CPU weight must be between 100-10000".to_string(),
+            ));
         }
         Ok(())
     }
@@ -79,20 +94,33 @@ impl Cgroup {
     pub fn new(name: &str, pid: Pid) -> Result<Self> {
         let cgroup_path = cgroup_root_path().join(name);
         fs::create_dir_all(&cgroup_path).map_err(|e| {
-            SandboxError::Cgroup(format!("Failed to create cgroup directory {}: {}", cgroup_path.display(), e))
+            SandboxError::Cgroup(format!(
+                "Failed to create cgroup directory {}: {}",
+                cgroup_path.display(),
+                e
+            ))
         })?;
-        Ok(Self { path: cgroup_path, pid })
+        Ok(Self {
+            path: cgroup_path,
+            pid,
+        })
     }
 
     pub fn apply_config(&self, config: &CgroupConfig) -> Result<()> {
         config.validate()?;
-        if let Some(memory) = config.memory_limit { self.set_memory_limit(memory)?; }
-        if let Some(weight) = config.cpu_weight { self.set_cpu_weight(weight)?; }
+        if let Some(memory) = config.memory_limit {
+            self.set_memory_limit(memory)?;
+        }
+        if let Some(weight) = config.cpu_weight {
+            self.set_cpu_weight(weight)?;
+        }
         if let Some(quota) = config.cpu_quota {
             let period = config.cpu_period.unwrap_or(100000);
             self.set_cpu_quota(quota, period)?;
         }
-        if let Some(max_pids) = config.max_pids { self.set_max_pids(max_pids)?; }
+        if let Some(max_pids) = config.max_pids {
+            self.set_max_pids(max_pids)?;
+        }
         Ok(())
     }
 
@@ -110,7 +138,11 @@ impl Cgroup {
     }
 
     fn set_cpu_quota(&self, quota: u64, period: u64) -> Result<()> {
-        let quota_str = if quota == u64::MAX { "max".to_string() } else { format!("{} {}", quota, period) };
+        let quota_str = if quota == u64::MAX {
+            "max".to_string()
+        } else {
+            format!("{} {}", quota, period)
+        };
         self.write_file(&self.path.join("cpu.max"), &quota_str)
     }
 
@@ -144,14 +176,22 @@ impl Cgroup {
         Ok(0)
     }
 
-    pub fn exists(&self) -> bool { self.path.exists() }
-    pub fn pid(&self) -> Pid { self.pid }
+    pub fn exists(&self) -> bool {
+        self.path.exists()
+    }
+    pub fn pid(&self) -> Pid {
+        self.pid
+    }
 
     pub fn delete(&self) -> Result<()> {
         match fs::remove_dir(&self.path) {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(SandboxError::Cgroup(format!("Failed to delete cgroup {}: {}", self.path.display(), e))),
+            Err(e) => Err(SandboxError::Cgroup(format!(
+                "Failed to delete cgroup {}: {}",
+                self.path.display(),
+                e
+            ))),
         }
     }
 
@@ -169,13 +209,19 @@ impl Cgroup {
         let content = fs::read_to_string(path).map_err(|e| {
             SandboxError::Cgroup(format!("Failed to read {}: {}", path.display(), e))
         })?;
-        content.trim().parse::<u64>().map_err(|e| SandboxError::Cgroup(format!("Failed to parse value: {}", e)))
+        content
+            .trim()
+            .parse::<u64>()
+            .map_err(|e| SandboxError::Cgroup(format!("Failed to parse value: {}", e)))
     }
 
     /// Create a Cgroup backed by an arbitrary directory path (for testing)
     #[doc(hidden)]
     pub fn for_testing(path: PathBuf) -> Self {
-        Self { path, pid: Pid::from_raw(0) }
+        Self {
+            path,
+            pid: Pid::from_raw(0),
+        }
     }
 }
 
@@ -194,7 +240,15 @@ mod tests {
         let tmp = tempdir().unwrap();
         let path = tmp.path().join("cgroup-test");
         fs::create_dir_all(&path).unwrap();
-        for file in &["memory.max", "memory.current", "cpu.weight", "cpu.max", "cpu.stat", "pids.max", "cgroup.procs"] {
+        for file in &[
+            "memory.max",
+            "memory.current",
+            "cpu.weight",
+            "cpu.max",
+            "cpu.stat",
+            "pids.max",
+            "cgroup.procs",
+        ] {
             fs::write(path.join(file), "0").unwrap();
         }
         fs::write(path.join("cpu.stat"), "usage_usec 0\n").unwrap();
@@ -211,9 +265,30 @@ mod tests {
     #[test]
     fn test_cgroup_config_validate() {
         assert!(CgroupConfig::default().validate().is_ok());
-        assert!(CgroupConfig { memory_limit: Some(0), ..Default::default() }.validate().is_err());
-        assert!(CgroupConfig { cpu_weight: Some(50), ..Default::default() }.validate().is_err());
-        assert!(CgroupConfig { cpu_weight: Some(100), ..Default::default() }.validate().is_ok());
+        assert!(
+            CgroupConfig {
+                memory_limit: Some(0),
+                ..Default::default()
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            CgroupConfig {
+                cpu_weight: Some(50),
+                ..Default::default()
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            CgroupConfig {
+                cpu_weight: Some(100),
+                ..Default::default()
+            }
+            .validate()
+            .is_ok()
+        );
     }
 
     #[test]
@@ -221,14 +296,29 @@ mod tests {
         let (_tmp, path) = prepare_cgroup_dir();
         let cgroup = Cgroup::for_testing(path.clone());
         let config = CgroupConfig {
-            memory_limit: Some(2048), cpu_weight: Some(500),
-            cpu_quota: Some(50_000), cpu_period: Some(100_000), max_pids: Some(32),
+            memory_limit: Some(2048),
+            cpu_weight: Some(500),
+            cpu_quota: Some(50_000),
+            cpu_period: Some(100_000),
+            max_pids: Some(32),
         };
         cgroup.apply_config(&config).unwrap();
-        assert_eq!(fs::read_to_string(path.join("memory.max")).unwrap().trim(), "2048");
-        assert_eq!(fs::read_to_string(path.join("cpu.weight")).unwrap().trim(), "500");
-        assert_eq!(fs::read_to_string(path.join("cpu.max")).unwrap().trim(), "50000 100000");
-        assert_eq!(fs::read_to_string(path.join("pids.max")).unwrap().trim(), "32");
+        assert_eq!(
+            fs::read_to_string(path.join("memory.max")).unwrap().trim(),
+            "2048"
+        );
+        assert_eq!(
+            fs::read_to_string(path.join("cpu.weight")).unwrap().trim(),
+            "500"
+        );
+        assert_eq!(
+            fs::read_to_string(path.join("cpu.max")).unwrap().trim(),
+            "50000 100000"
+        );
+        assert_eq!(
+            fs::read_to_string(path.join("pids.max")).unwrap().trim(),
+            "32"
+        );
     }
 
     #[test]

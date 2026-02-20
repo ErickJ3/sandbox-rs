@@ -7,8 +7,8 @@
 //! - User namespace: sync pipe for UID/GID mapping from parent
 //! - Resource limits: applies RlimitConfig in child before execve
 
-use sandbox_core::{Result, SandboxError};
 use sandbox_cgroup::RlimitConfig;
+use sandbox_core::{Result, SandboxError};
 use sandbox_namespace::NamespaceConfig;
 use sandbox_seccomp::{SeccompBpf, SeccompFilter};
 
@@ -156,8 +156,8 @@ impl ProcessExecutor {
 
         if use_user_namespace && namespace_config.user {
             // Create sync pipe for parent→child signaling
-            let (sync_read, sync_write) = nix::unistd::pipe()
-                .map_err(|e| SandboxError::Syscall(format!("pipe: {}", e)))?;
+            let (sync_read, sync_write) =
+                nix::unistd::pipe().map_err(|e| SandboxError::Syscall(format!("pipe: {}", e)))?;
             let sync_read_raw = sync_read.as_raw_fd();
             let sync_write_raw = sync_write.as_raw_fd();
 
@@ -169,19 +169,14 @@ impl ProcessExecutor {
                     libc::close(sync_write_raw);
                     // Wait for parent to signal (parent writes 1 byte after uid_map setup)
                     let mut buf = [0u8; 1];
-                    libc::read(
-                        sync_read_raw,
-                        buf.as_mut_ptr() as *mut libc::c_void,
-                        1,
-                    );
+                    libc::read(sync_read_raw, buf.as_mut_ptr() as *mut libc::c_void, 1);
                     libc::close(sync_read_raw);
                 }
                 child_fn()
             });
 
-            let result = unsafe {
-                clone(wrapped, child_stack, flags, Some(Signal::SIGCHLD as i32))
-            };
+            let result =
+                unsafe { clone(wrapped, child_stack, flags, Some(Signal::SIGCHLD as i32)) };
 
             // Parent: close our copy of the read end
             drop(sync_read);
@@ -214,9 +209,8 @@ impl ProcessExecutor {
             }
         } else {
             // No user namespace - clone directly
-            let result = unsafe {
-                clone(child_fn, child_stack, flags, Some(Signal::SIGCHLD as i32))
-            };
+            let result =
+                unsafe { clone(child_fn, child_stack, flags, Some(Signal::SIGCHLD as i32)) };
             result.map_err(|e| SandboxError::Syscall(format!("clone failed: {}", e)))
         }
     }
@@ -235,9 +229,7 @@ impl ProcessExecutor {
         let mut child_config = Some(config);
 
         let child_pid = Self::clone_child(
-            Box::new(move || {
-                Self::child_setup(child_config.take().unwrap())
-            }),
+            Box::new(move || Self::child_setup(child_config.take().unwrap())),
             &mut child_stack,
             &namespace_config,
             use_user_ns,

@@ -115,10 +115,7 @@ fn landlock_allows_permitted_paths() {
             }
 
             // Reading from /tmp should succeed
-            let fd = libc::open(
-                test_path.as_ptr() as *const libc::c_char,
-                libc::O_RDONLY,
-            );
+            let fd = libc::open(test_path.as_ptr() as *const libc::c_char, libc::O_RDONLY);
             if fd >= 0 {
                 libc::close(fd);
                 libc::unlink(test_path.as_ptr() as *const libc::c_char);
@@ -207,7 +204,10 @@ fn landlock_apply_fails_gracefully_when_unavailable() {
     };
 
     let result = config.apply();
-    assert!(result.is_err(), "apply() should fail when landlock is unavailable");
+    assert!(
+        result.is_err(),
+        "apply() should fail when landlock is unavailable"
+    );
     let err_msg = result.unwrap_err().to_string();
     assert!(
         err_msg.contains("not available"),

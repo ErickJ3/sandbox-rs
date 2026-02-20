@@ -100,15 +100,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Query layer information
     println!("[5] Layer Information\n");
 
-    let lower_info =
-        sandbox_rs::LayerInfo::from_path("lower", overlay.lower_path(), false)?;
+    let lower_info = sandbox_rs::LayerInfo::from_path("lower", overlay.lower_path(), false)?;
     println!("  Lower Layer (Read-only):");
     println!("    Files: {}", lower_info.file_count);
     println!("    Total size: {} bytes", lower_info.size);
     println!("    Writable: {}\n", lower_info.writable);
 
-    let upper_info =
-        sandbox_rs::LayerInfo::from_path("upper", overlay.upper_path(), true)?;
+    let upper_info = sandbox_rs::LayerInfo::from_path("upper", overlay.upper_path(), true)?;
     println!("  Upper Layer (Read-write changes):");
     println!("    Files: {}", upper_info.file_count);
     println!("    Total size: {} bytes", upper_info.size);

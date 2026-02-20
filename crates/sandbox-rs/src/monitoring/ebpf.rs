@@ -5,8 +5,8 @@
 //!
 //! Note: Full eBPF functionality requires kernel 5.0+ and BPF_RING_BUFFER support.
 
-use sandbox_core::Result;
 use nix::unistd::Pid;
+use sandbox_core::Result;
 use std::collections::HashMap;
 
 /// Syscall event information
