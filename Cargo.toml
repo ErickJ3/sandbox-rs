@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "sandbox-ctl"]
+members = ["crates/*", "sandbox-ctl"]
 resolver = "2"
 
 [workspace.package]
@@ -10,38 +10,25 @@ license = "MIT"
 repository = "https://github.com/ErickJ3/sandbox-rs"
 homepage = "https://github.com/ErickJ3/sandbox-rs"
 
-[package]
-name = "sandbox-rs"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-homepage.workspace = true
-description = "A comprehensive Rust sandbox implementation that provides process isolation, resource limiting, and syscall filtering for secure program execution."
-documentation = "https://docs.rs/sandbox-rs"
-keywords = ["sandbox", "isolation", "security", "linux", "seccomp"]
-categories = ["development-tools", "os"]
-readme = "README.md"
-
 [workspace.dependencies]
-sandbox-rs = { path = "." }
+sandbox-core = { path = "crates/sandbox-core" }
+sandbox-seccomp = { path = "crates/sandbox-seccomp" }
+sandbox-namespace = { path = "crates/sandbox-namespace" }
+sandbox-landlock = { path = "crates/sandbox-landlock" }
+sandbox-cgroup = { path = "crates/sandbox-cgroup" }
+sandbox-fs = { path = "crates/sandbox-fs" }
+sandbox-rs = { path = "crates/sandbox-rs" }
 
-[dependencies]
-nix = { version = "0.30", features = ["process", "sched", "mount", "resource", "signal", "fs"] }
-libc = "0.2"
-thiserror = "2.0"
-anyhow = "1.0"
+nix = { version = "0.31", features = ["process", "sched", "mount", "resource", "signal", "fs"] }
+libc = "0.2.0"
+thiserror = "2"
+anyhow = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tempfile = "3.23"
 log = "0.4"
 seccompiler = "0.5"
 walkdir = "2.5"
-
-[lib]
-name = "sandbox_rs"
-path = "lib/lib.rs"
 
 [profile.release]
 opt-level = 3

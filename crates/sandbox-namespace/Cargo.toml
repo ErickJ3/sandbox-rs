@@ -1,0 +1,17 @@
+[package]
+name = "sandbox-namespace"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Linux namespace management for sandbox-rs with user namespace support"
+keywords = ["sandbox", "namespace", "isolation", "linux"]
+categories = ["development-tools", "os"]
+
+[dependencies]
+sandbox-core.workspace = true
+nix.workspace = true
+libc = "0.2"
+log = "0.4"

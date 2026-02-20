@@ -1,0 +1,16 @@
+[package]
+name = "sandbox-landlock"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Landlock filesystem sandboxing for sandbox-rs (no root required, Linux 5.13+)"
+keywords = ["sandbox", "landlock", "security", "linux"]
+categories = ["development-tools", "os"]
+
+[dependencies]
+sandbox-core.workspace = true
+libc = "0.2"
+log = "0.4"

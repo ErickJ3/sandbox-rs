@@ -1,0 +1,17 @@
+[package]
+name = "sandbox-seccomp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Seccomp BPF filtering for sandbox-rs (no root required)"
+keywords = ["sandbox", "seccomp", "security", "linux"]
+categories = ["development-tools", "os"]
+
+[dependencies]
+sandbox-core.workspace = true
+libc = "0.2"
+seccompiler = "0.5"
+log = "0.4"

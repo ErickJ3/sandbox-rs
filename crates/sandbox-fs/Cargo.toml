@@ -1,0 +1,16 @@
+[package]
+name = "sandbox-fs"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "OverlayFS and volume management for sandbox-rs"
+keywords = ["sandbox", "filesystem", "overlay", "linux"]
+categories = ["development-tools", "os"]
+
+[dependencies]
+sandbox-core.workspace = true
+libc = "0.2"
+walkdir = "2.5"

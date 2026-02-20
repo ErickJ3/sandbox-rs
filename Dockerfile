@@ -4,7 +4,7 @@ WORKDIR /build
 
 # Copy workspace sources
 COPY Cargo.toml Cargo.lock ./
-COPY lib ./lib
+COPY crates ./crates
 COPY sandbox-ctl ./sandbox-ctl
 
 RUN cargo build --release --locked --package sandbox-ctl
@@ -18,8 +18,10 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/target/release/sandbox-ctl /usr/local/bin/sandbox-ctl
-RUN mkdir -p /sandbox/workdir /sandbox/volumes
 
-WORKDIR /sandbox
+RUN useradd --create-home sandbox
+USER sandbox
+
+WORKDIR /home/sandbox
 ENTRYPOINT ["/usr/local/bin/sandbox-ctl"]
 CMD ["--help"]

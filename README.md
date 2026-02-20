@@ -1,65 +1,45 @@
 # sandbox-rs
 
-⚠️ In active development, use with caution.
+> Lightweight process sandboxing for Linux
 
-A comprehensive Rust sandbox implementation that provides process isolation, resource limiting, and syscall filtering for secure program execution.
-
-![Tests](https://img.shields.io/github/actions/workflow/status/ErickJ3/sandbox-rs/ci.yml?branch=main&label=test)
+![Tests](https://img.shields.io/github/actions/workflow/status/ErickJ3/sandbox-rs/ci.yml?branch=main&label=tests)
 [![codecov](https://codecov.io/gh/ErickJ3/sandbox-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/ErickJ3/sandbox-rs)
 [![Crates.io](https://img.shields.io/crates/v/sandbox-rs.svg)](https://crates.io/crates/sandbox-rs)
 [![Documentation](https://docs.rs/sandbox-rs/badge.svg)](https://docs.rs/sandbox-rs)
 ![Rust](https://img.shields.io/badge/rust-1.91%2B-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-## Overview
+## Things
 
-sandbox-rs is a library and CLI tool for creating lightweight, secure sandboxes on Linux systems. It combines multiple isolation mechanisms—Linux namespaces, Seccomp BPF filtering, Cgroup v2 resource limits, and filesystem isolation—into a unified, easy-to-use interface.
-
-## Features
-
-### Isolation
-- **Linux Namespaces**: PID, IPC, network, mount, UTS, and user namespaces for complete process isolation
-- **Seccomp Filtering**: BPF-based syscall filtering with five predefined profiles (minimal, io-heavy, compute, network, unrestricted)
-- **Filesystem Isolation**: OverlayFS support with direct mount syscalls (requires root)
-
-### Resource Management
-- **Memory Limits**: Hard ceiling with out-of-memory enforcement
-- **CPU Limits**: Quota-based scheduling with percentage-based controls
-- **Process Limits**: Maximum PID restrictions per sandbox
-- **Runtime Monitoring**: Real-time resource usage tracking
-
-### Execution
-- **Process Isolation**: Namespace-based cloning with independent lifecycles
-- **Init Process**: Zombie reaping and signal handling
-- **Root Isolation**: Chroot support with credential switching (UID/GID)
+- **Unprivileged mode** — works without root via user namespaces, Landlock, and setrlimit
+- **Privileged mode** — full isolation with cgroups v2, chroot, and all namespace types
+- **Auto-detection** — automatically picks the best mode for the current environment
+- **Seccomp BPF** — five built-in syscall filtering profiles
+- **Landlock** — filesystem access control without root (Linux 5.13+)
+- **Resource limits** — memory, CPU, and PID constraints
+- **Streaming output** — real-time stdout/stderr capture
 
 ## Requirements
 
-- **Linux kernel 5.10+** (Cgroup v2 support required)
-- **Root privileges REQUIRED** - The sandbox enforces proper isolation through cgroups, namespaces, and filesystem operations that all require root access. Running without root will result in an error.
-- libc support for namespace and seccomp operations
+- **Linux kernel 5.10+** (5.13+ for Landlock support)
+- Root is **optional** — unprivileged mode uses user namespaces + seccomp + Landlock + setrlimit
 
-## Installation
+## Quick Start
 
-Add to your `Cargo.toml`:
+### Library
 
 ```toml
 [dependencies]
 sandbox-rs = "0.1"
 ```
 
-## Usage
-
-### Library
-
-**One-shot execution:**
-
 ```rust
-use sandbox_rs::{SandboxBuilder, SeccompProfile};
+use sandbox_rs::{SandboxBuilder, SeccompProfile, PrivilegeMode};
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut sandbox = SandboxBuilder::new("my-sandbox")
+        .privilege_mode(PrivilegeMode::Unprivileged)
         .memory_limit_str("256M")?
         .cpu_limit_percent(50)
         .timeout(Duration::from_secs(30))
@@ -67,149 +47,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     let result = sandbox.run("/bin/echo", &["hello world"])?;
-    println!("Exit code: {}", result.exit_code);
-    println!("Memory peak: {} bytes", result.memory_peak);
-    println!("CPU time: {} μs", result.cpu_time_us);
-
-    Ok(())
-}
-```
-
-**Streaming output (real-time):**
-
-```rust
-use sandbox_rs::{SandboxBuilder, StreamChunk};
-use std::time::Duration;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut sandbox = SandboxBuilder::new("my-sandbox")
-        .memory_limit_str("256M")?
-        .cpu_limit_percent(50)
-        .timeout(Duration::from_secs(30))
-        .build()?;
-
-    let (result, stream) = sandbox.run_with_stream("/bin/echo", &["hello world"])?;
-
-    // Process output in real-time
-    for chunk in stream.into_iter() {
-        match chunk {
-            StreamChunk::Stdout(line) => println!("out: {}", line),
-            StreamChunk::Stderr(line) => eprintln!("err: {}", line),
-            StreamChunk::Exit { exit_code, signal } => {
-                println!("Exit code: {}", exit_code);
-            }
-        }
-    }
-
+    println!("exit={} mem={}B cpu={}μs", result.exit_code, result.memory_peak, result.cpu_time_us);
     Ok(())
 }
 ```
 
 ### CLI
 
-**Native:**
-
 ```bash
-# Run program with sandbox
-sandbox-ctl run --id test-run --memory 256M --cpu 50 --timeout 30 /bin/echo "hello world"
+# Run a program in a sandbox (auto-detects privilege mode)
+sandbox-ctl /bin/echo "hello world"
 
-# List available seccomp profiles
-sandbox-ctl profiles
+# Use a security profile with resource limits
+sandbox-ctl --profile moderate --memory 512M --cpu 50 python script.py
 
-# Check system requirements
+# Check system capabilities
 sandbox-ctl check
+
+# List seccomp profiles
+sandbox-ctl seccomp
 ```
 
-**Docker:**
+## Seccomp Profiles
 
-Run sandbox-ctl in a container without requiring root on the host machine:
+| Profile | Allowed syscalls |
+|---------|-----------------|
+| `Minimal` | `exit`, `read`, `write` |
+| `IoHeavy` | Minimal + file ops (`open`, `close`, `seek`, `stat`) |
+| `Compute` | IO-heavy + memory ops (`mmap`, `brk`, `mprotect`) |
+| `Network` | Compute + socket ops (`socket`, `bind`, `listen`, `connect`) |
+| `Unrestricted` | Most syscalls (for debugging) |
 
-```bash
-# Build the Docker image
-docker build -t sandbox-rs .
+## Security
 
-# Run sandbox-ctl with required permissions and cgroup access
-docker run --privileged --cgroupns=host \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-  sandbox-rs run \
-  --id test-run \
-  --memory 256M \
-  --cpu 50 \
-  --timeout 30 \
-  /bin/echo "hello world"
-
-# Or use docker-compose (already configured)
-docker-compose run sandbox-ctl run \
-  --id test-run \
-  --memory 256M \
-  --cpu 50 \
-  /bin/echo "hello world"
-
-# Interactive mode
-docker run -it --privileged --cgroupns=host \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-  sandbox-rs --help
-```
-
-**Note:** The container requires:
-- Privileged mode for Linux namespaces and seccomp filtering
-- Host cgroup namespace (`--cgroupns=host`) to manage cgroups
-- Mount of `/sys/fs/cgroup` from host for resource limiting
-
-## Architecture
-
-sandbox-rs is organized into modular layers:
-
-- **isolation**: Namespace and Seccomp filtering mechanisms
-- **resources**: Cgroup v2 resource limit enforcement
-- **execution**: Process lifecycle management and initialization
-- **storage**: Filesystem isolation with overlay and volume support
-- **monitoring**: Process and syscall observation
-- **network**: Network namespace configuration
-- **controller**: Main orchestration layer coordinating all subsystems
-
-## Configuration
-
-### Memory Limits
-
-Accepts human-readable formats:
-- `100M` - 100 megabytes
-- `1G` - 1 gigabyte
-- Direct byte count as u64
-
-### CPU Limits
-
-CPU quotas are enforced per sandbox:
-- Percentage mode (0-100): `cpu_limit_percent(50)` → 50% of one CPU core
-- Raw quota mode: `cpu_quota(50000, 100000)` → 50ms per 100ms period
-
-### Seccomp Profiles
-
-Five builtin profiles control allowed syscalls:
-
-- **minimal**: Basic syscalls only (exit, read, write)
-- **io-heavy**: Minimal + file operations (open, close, seek, stat)
-- **compute**: IO-heavy + memory operations (mmap, brk, mprotect)
-- **network**: Compute + socket operations (socket, bind, listen, connect)
-- **unrestricted**: Most syscalls allowed (for debugging)
-
-## Security Considerations
-
-This implementation provides defense-in-depth through multiple isolation layers. However:
-
-- Sandbox escapes are possible through kernel vulnerabilities
-- Not suitable for untrusted code execution without additional hardening
-- Should be combined with AppArmor or SELinux for production use
-- Requires ongoing kernel security updates
-
-## Testing
-
-```bash
-cargo test
-```
-
-Tests are marked `serial` where required due to global state (root and cgroup manipulation).
+- Defense-in-depth: multiple isolation layers (namespaces, seccomp, Landlock, cgroups)
+- Combine with AppArmor or SELinux for production use
+- Kernel vulnerabilities can bypass sandbox boundaries — keep your kernel updated
+- Not a replacement for VM-level isolation for fully untrusted code
 
 ## License
 
-See LICENSE file for details.
+MIT — see [LICENSE](LICENSE) for details.

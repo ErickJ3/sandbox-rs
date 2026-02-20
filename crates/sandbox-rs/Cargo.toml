@@ -1,0 +1,32 @@
+[package]
+name = "sandbox-rs"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "A comprehensive Rust sandbox implementation that provides process isolation, resource limiting, and syscall filtering for secure program execution."
+documentation = "https://docs.rs/sandbox-rs"
+keywords = ["sandbox", "isolation", "security", "linux", "seccomp"]
+categories = ["development-tools", "os"]
+readme = "../../README.md"
+
+[dependencies]
+sandbox-core.workspace = true
+sandbox-seccomp.workspace = true
+sandbox-namespace.workspace = true
+sandbox-landlock.workspace = true
+sandbox-cgroup.workspace = true
+sandbox-fs.workspace = true
+nix.workspace = true
+libc = "0.2"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.23"
+log = "0.4"
+
+[lib]
+name = "sandbox_rs"
+path = "src/lib.rs"
