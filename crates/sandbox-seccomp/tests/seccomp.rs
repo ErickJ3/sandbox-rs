@@ -186,3 +186,52 @@ fn seccomp_all_profiles_load_successfully() {
         }
     }
 }
+
+/// Verify that the Minimal profile allows runtime-essential syscalls
+/// (lseek, gettid, sched_getaffinity, sysinfo) that common runtimes need.
+#[test]
+fn seccomp_minimal_allows_runtime_essentials() {
+    unsafe {
+        let pid = libc::fork();
+        assert!(pid >= 0, "fork failed");
+
+        if pid == 0 {
+            let filter = SeccompFilter::from_profile(SeccompProfile::Minimal);
+            if SeccompBpf::load(&filter).is_err() {
+                libc::_exit(99);
+            }
+
+            // lseek - file seeking (reading .pyc, shared libs)
+            // Using lseek on stdin with offset 0, SEEK_CUR just queries position
+            libc::lseek(libc::STDIN_FILENO, 0, libc::SEEK_CUR);
+
+            // gettid - thread ID (glibc internal)
+            libc::syscall(libc::SYS_gettid);
+
+            // sched_getaffinity - CPU count (os.cpu_count())
+            let mut cpuset: libc::cpu_set_t = std::mem::zeroed();
+            libc::sched_getaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &mut cpuset);
+
+            // sysinfo - memory/CPU info (Python resource module)
+            let mut info: libc::sysinfo = std::mem::zeroed();
+            libc::sysinfo(&mut info);
+
+            // If we get here, all syscalls were allowed
+            libc::_exit(0);
+        } else {
+            let mut status: i32 = 0;
+            libc::waitpid(pid, &mut status, 0);
+
+            assert!(
+                libc::WIFEXITED(status),
+                "Child should have exited normally (runtime-essential syscalls allowed), status=0x{:x}",
+                status
+            );
+            assert_eq!(
+                libc::WEXITSTATUS(status),
+                0,
+                "Child should exit with 0 (all runtime-essential syscalls worked)"
+            );
+        }
+    }
+}

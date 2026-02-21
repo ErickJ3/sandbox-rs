@@ -78,6 +78,7 @@ impl SeccompFilter {
             "exit",
             "exit_group",
             "clone",
+            "clone3",
             "fork",
             "vfork",
             // Signal handling
@@ -98,12 +99,18 @@ impl SeccompFilter {
             "writev",
             "pread64",
             "pwrite64",
+            "lseek",
             "access",
             "faccessat",
+            "faccessat2",
+            "readlink",
+            "readlinkat",
+            "flock",
             // File operations
             "open",
             "openat",
             "close",
+            "close_range",
             "stat",
             "fstat",
             "lstat",
@@ -120,6 +127,7 @@ impl SeccompFilter {
             "munlock",
             "mlockall",
             "munlockall",
+            "memfd_create",
             // Process execution
             "execve",
             "execveat",
@@ -133,11 +141,20 @@ impl SeccompFilter {
             "dup3",
             "pipe",
             "pipe2",
+            "eventfd2",
             // Getting time
             "clock_gettime",
             "clock_getres",
             "gettimeofday",
             "time",
+            "nanosleep",
+            "clock_nanosleep",
+            // Timers
+            "timer_create",
+            "timer_settime",
+            "timer_gettime",
+            "timer_getoverrun",
+            "timer_delete",
             // Process info
             "getpid",
             "getppid",
@@ -145,12 +162,20 @@ impl SeccompFilter {
             "geteuid",
             "getgid",
             "getegid",
+            "gettid",
+            "getresuid",
+            "getresgid",
             "uname",
+            "umask",
+            "sysinfo",
             "getpgrp",
             "getpgid",
             "setpgid",
             "getsid",
             "setsid",
+            // Scheduling
+            "sched_getaffinity",
+            "sched_yield",
             // Limits
             "getrlimit",
             "setrlimit",
@@ -203,8 +228,6 @@ impl SeccompFilter {
                     "linkat",
                     "symlink",
                     "symlinkat",
-                    "readlink",
-                    "readlinkat",
                     "chmod",
                     "fchmod",
                     "fchmodat",
@@ -233,7 +256,6 @@ impl SeccompFilter {
             }
             SeccompProfile::Compute => {
                 for syscall in &[
-                    "sched_yield",
                     "sched_getscheduler",
                     "sched_setscheduler",
                     "sched_getparam",
@@ -241,7 +263,6 @@ impl SeccompFilter {
                     "sched_get_priority_max",
                     "sched_get_priority_min",
                     "sched_rr_get_interval",
-                    "sched_getaffinity",
                     "sched_setaffinity",
                     "mbind",
                     "get_mempolicy",
@@ -406,8 +427,17 @@ mod tests {
         assert!(filter.is_allowed("read"));
         assert!(filter.is_allowed("write"));
         assert!(filter.is_allowed("exit"));
+        assert!(filter.is_allowed("clone3"));
+        assert!(filter.is_allowed("lseek"));
+        assert!(filter.is_allowed("sched_getaffinity"));
+        assert!(filter.is_allowed("nanosleep"));
+        assert!(filter.is_allowed("gettid"));
         assert!(!filter.is_allowed("ptrace"));
-        assert!(filter.allowed_count() > 20);
+        assert!(
+            filter.allowed_count() > 100,
+            "Minimal profile should have > 100 syscalls for runtime compatibility, got {}",
+            filter.allowed_count()
+        );
     }
 
     #[test]
