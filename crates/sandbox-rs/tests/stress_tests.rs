@@ -84,6 +84,7 @@ fn stress_max_pids_configurations() {
 #[test]
 fn stress_seccomp_profiles() {
     let profiles = [
+        SeccompProfile::Essential,
         SeccompProfile::Minimal,
         SeccompProfile::IoHeavy,
         SeccompProfile::Compute,

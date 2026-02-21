@@ -14,7 +14,7 @@
 - **Unprivileged mode** — works without root via user namespaces, Landlock, and setrlimit
 - **Privileged mode** — full isolation with cgroups v2, chroot, and all namespace types
 - **Auto-detection** — automatically picks the best mode for the current environment
-- **Seccomp BPF** — five built-in syscall filtering profiles
+- **Seccomp BPF** — six built-in syscall filtering profiles
 - **Landlock** — filesystem access control without root (Linux 5.13+)
 - **Resource limits** — memory, CPU, and PID constraints
 - **Streaming output** — real-time stdout/stderr capture
@@ -52,6 +52,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+> **Note:** `memory_peak` and `cpu_time_us` require privileged mode (cgroups v2). In unprivileged mode these values are `0`.
+
 ### CLI
 
 ```bash
@@ -70,13 +72,16 @@ sandbox-ctl seccomp
 
 ## Seccomp Profiles
 
-| Profile | Allowed syscalls |
-|---------|-----------------|
-| `Minimal` | `exit`, `read`, `write` |
-| `IoHeavy` | Minimal + file ops (`open`, `close`, `seek`, `stat`) |
-| `Compute` | IO-heavy + memory ops (`mmap`, `brk`, `mprotect`) |
-| `Network` | Compute + socket ops (`socket`, `bind`, `listen`, `connect`) |
-| `Unrestricted` | Most syscalls (for debugging) |
+Each profile includes all syscalls from profiles below it (cumulative).
+
+| Profile | Syscalls |
+|---------|----------|
+| `Essential` | Process bootstrap only (~40): `execve`, `mmap`, `brk`, `read`, `write`, `exit`, ... |
+| `Minimal` | Essential + signals, pipes, timers, process control (~110 total) |
+| `IoHeavy` | Minimal + file manipulation: `mkdir`, `chmod`, `unlink`, `rename`, `fsync`, ... |
+| `Compute` | IoHeavy + scheduling/NUMA: `sched_setscheduler`, `mbind`, `membarrier`, ... |
+| `Network` | Compute + sockets: `socket`, `bind`, `listen`, `connect`, `sendto`, ... |
+| `Unrestricted` | Network + privileged: `ptrace`, `mount`, `bpf`, `setuid`, ... |
 
 ## Security
 
