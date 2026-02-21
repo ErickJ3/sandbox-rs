@@ -50,6 +50,7 @@ pub fn run_sandbox(config: RunConfig) -> Result<(), Box<dyn std::error::Error>> 
     if let Some(s) = config.seccomp {
         debug!("Overriding seccomp profile: {}", s);
         builder = builder.seccomp_profile(match s.to_lowercase().as_str() {
+            "essential" => SeccompProfile::Essential,
             "minimal" => SeccompProfile::Minimal,
             "io-heavy" => SeccompProfile::IoHeavy,
             "compute" => SeccompProfile::Compute,

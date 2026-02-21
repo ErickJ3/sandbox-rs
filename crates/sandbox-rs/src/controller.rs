@@ -202,9 +202,11 @@ pub struct SandboxResult {
     pub signal: Option<i32>,
     /// Whether timeout occurred
     pub timed_out: bool,
-    /// Memory usage in bytes
+    /// Peak memory usage in bytes.
+    /// Requires privileged mode (cgroups v2). Returns `0` in unprivileged mode.
     pub memory_peak: u64,
-    /// CPU time in microseconds
+    /// CPU time in microseconds.
+    /// Requires privileged mode (cgroups v2). Returns `0` in unprivileged mode.
     pub cpu_time_us: u64,
     /// Wall clock time in milliseconds
     pub wall_time_ms: u64,

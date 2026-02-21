@@ -30,13 +30,22 @@ pub fn list_seccomp_profiles() {
     println!("{}\n", style("Available seccomp profiles:").cyan().bold());
 
     let profiles: &[(&str, &str, Option<&str>)] = &[
-        ("minimal", "Minimal syscalls only", Some("(most secure)")),
-        ("io-heavy", "With file I/O operations", None),
-        ("compute", "With memory operations", None),
-        ("network", "With socket operations", None),
+        (
+            "essential",
+            "Process bootstrap only (~40 syscalls)",
+            Some("(most secure)"),
+        ),
+        (
+            "minimal",
+            "Essential + signals, pipes, timers, process control",
+            None,
+        ),
+        ("io-heavy", "Minimal + file manipulation", None),
+        ("compute", "IoHeavy + advanced scheduling/NUMA", None),
+        ("network", "Compute + socket operations", None),
         (
             "unrestricted",
-            "Allow most syscalls",
+            "Network + privileged operations",
             Some("(least secure)"),
         ),
     ];

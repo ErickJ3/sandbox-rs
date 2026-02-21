@@ -119,6 +119,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_compile_essential_filter() {
+        let filter = SeccompFilter::from_profile(SeccompProfile::Essential);
+        let result = SeccompBpf::compile(&filter);
+        assert!(result.is_ok());
+        let bpf_code = result.unwrap();
+        assert!(!bpf_code.is_empty());
+    }
+
+    #[test]
     fn test_compile_minimal_filter() {
         let filter = SeccompFilter::minimal();
         let result = SeccompBpf::compile(&filter);

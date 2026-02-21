@@ -5,7 +5,7 @@ use std::io::Write;
 
 /// Initialize logger based on verbose flag
 pub fn init_logger(verbose: bool) {
-    let env = Env::default().filter_or("RUST_LOG", if verbose { "debug" } else { "info" });
+    let env = Env::default().filter_or("RUST_LOG", if verbose { "debug" } else { "warn" });
 
     Builder::from_env(env)
         .format(|buf, record| {
@@ -21,7 +21,7 @@ pub fn init_logger(verbose: bool) {
         .filter_level(if verbose {
             LevelFilter::Debug
         } else {
-            LevelFilter::Info
+            LevelFilter::Warn
         })
         .init();
 }
