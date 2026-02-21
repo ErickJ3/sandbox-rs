@@ -374,9 +374,7 @@ impl SeccompFilter {
 
         if matches!(
             profile,
-            SeccompProfile::Compute
-                | SeccompProfile::Network
-                | SeccompProfile::Unrestricted
+            SeccompProfile::Compute | SeccompProfile::Network | SeccompProfile::Unrestricted
         ) {
             add(Self::compute_extras());
         }
@@ -650,23 +648,33 @@ mod tests {
 
         // Each profile must be a strict superset of the one below
         assert!(
-            essential.allowed_syscalls().is_subset(minimal.allowed_syscalls()),
+            essential
+                .allowed_syscalls()
+                .is_subset(minimal.allowed_syscalls()),
             "Essential should be a subset of Minimal"
         );
         assert!(
-            minimal.allowed_syscalls().is_subset(io_heavy.allowed_syscalls()),
+            minimal
+                .allowed_syscalls()
+                .is_subset(io_heavy.allowed_syscalls()),
             "Minimal should be a subset of IoHeavy"
         );
         assert!(
-            io_heavy.allowed_syscalls().is_subset(compute.allowed_syscalls()),
+            io_heavy
+                .allowed_syscalls()
+                .is_subset(compute.allowed_syscalls()),
             "IoHeavy should be a subset of Compute"
         );
         assert!(
-            compute.allowed_syscalls().is_subset(network.allowed_syscalls()),
+            compute
+                .allowed_syscalls()
+                .is_subset(network.allowed_syscalls()),
             "Compute should be a subset of Network"
         );
         assert!(
-            network.allowed_syscalls().is_subset(unrestricted.allowed_syscalls()),
+            network
+                .allowed_syscalls()
+                .is_subset(unrestricted.allowed_syscalls()),
             "Network should be a subset of Unrestricted"
         );
 
